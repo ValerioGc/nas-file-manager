@@ -140,73 +140,83 @@ pub fn scan(
             }
             Step::Visit(folder, forced) => (folder, forced),
         };
-        let Ok(metadata) = fs::symlink_metadata(&folder) else {
+        let Some(listing) = read_listing(&folder, forced, &mut known, recent) else {
             continue;
         };
-        let modified = modified_ns(&metadata);
-        let modified = if modified > recent {
-            UNTRUSTED
-        } else {
-            modified
-        };
-        if !metadata.is_dir()
-            || (!forced && modified != UNTRUSTED && known.get(&folder) == Some(&modified))
-        {
-            continue;
-        }
-        let Ok(reader) = fs::read_dir(&folder) else {
-            continue;
-        };
-        let children: Vec<(String, bool)> = reader
-            .flatten()
-            .filter_map(|entry| {
-                let name = entry.file_name().into_string().ok()?;
-                let is_folder = entry.file_type().is_ok_and(|kind| kind.is_dir());
-                (![CACHE_DIRECTORY, TRASH_DIRECTORY, TRASH_OFF].contains(&name.as_str()))
-                    .then_some((name, is_folder))
-            })
-            .collect();
-        let held: HashSet<&str> = children
+        let new: Vec<PathBuf> = listing
+            .children
             .iter()
             .filter(|(_, is_folder)| *is_folder)
-            .map(|(name, _)| name.as_str())
-            .collect();
-        let dropped: Vec<PathBuf> = known
-            .range(folder.clone()..)
-            .take_while(|(path, _)| path.starts_with(&folder))
-            .filter(|(path, _)| path.parent() == Some(folder.as_path()))
-            .filter(|(path, _)| {
-                path.file_name()
-                    .and_then(|name| name.to_str())
-                    .is_none_or(|name| !held.contains(name))
-            })
-            .map(|(path, _)| path.clone())
-            .collect();
-        for gone in &dropped {
-            let under: Vec<PathBuf> = known
-                .range(gone.clone()..)
-                .take_while(|(path, _)| path.starts_with(gone))
-                .map(|(path, _)| path.clone())
-                .collect();
-            for path in under {
-                known.remove(&path);
-            }
-        }
-        let new: Vec<PathBuf> = held
-            .iter()
-            .map(|name| folder.join(name))
+            .map(|(name, _)| folder.join(name))
             .filter(|child| !known.contains_key(child))
             .collect();
-        known.insert(folder.clone(), modified);
-        steps.push(Step::Emit(Listing {
-            folder,
-            modified_ns: modified,
-            children,
-            dropped,
-        }));
+        known.insert(folder, listing.modified_ns);
+        steps.push(Step::Emit(listing));
         steps.extend(new.into_iter().map(|child| Step::Visit(child, false)));
     }
     known
+}
+
+/// Reads a changed folder and forgets the known folders it no longer holds.
+fn read_listing(folder: &Path, forced: bool, known: &mut Known, recent: i64) -> Option<Listing> {
+    let Ok(metadata) = fs::symlink_metadata(folder) else {
+        return None;
+    };
+    let modified = modified_ns(&metadata);
+    let modified = if modified > recent {
+        UNTRUSTED
+    } else {
+        modified
+    };
+    if !metadata.is_dir()
+        || (!forced && modified != UNTRUSTED && known.get(folder) == Some(&modified))
+    {
+        return None;
+    }
+    let Ok(reader) = fs::read_dir(folder) else {
+        return None;
+    };
+    let children: Vec<(String, bool)> = reader
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name().into_string().ok()?;
+            let is_folder = entry.file_type().is_ok_and(|kind| kind.is_dir());
+            (![CACHE_DIRECTORY, TRASH_DIRECTORY, TRASH_OFF].contains(&name.as_str()))
+                .then_some((name, is_folder))
+        })
+        .collect();
+    let held: HashSet<&str> = children
+        .iter()
+        .filter(|(_, is_folder)| *is_folder)
+        .map(|(name, _)| name.as_str())
+        .collect();
+    let dropped: Vec<PathBuf> = known
+        .range(folder.to_path_buf()..)
+        .take_while(|(path, _)| path.starts_with(folder))
+        .filter(|(path, _)| path.parent() == Some(folder))
+        .filter(|(path, _)| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_none_or(|name| !held.contains(name))
+        })
+        .map(|(path, _)| path.clone())
+        .collect();
+    for gone in &dropped {
+        let under: Vec<PathBuf> = known
+            .range(gone.clone()..)
+            .take_while(|(path, _)| path.starts_with(gone))
+            .map(|(path, _)| path.clone())
+            .collect();
+        for path in under {
+            known.remove(&path);
+        }
+    }
+    Some(Listing {
+        folder: folder.to_path_buf(),
+        modified_ns: modified,
+        children,
+        dropped,
+    })
 }
 
 /// The watches of the folders, and those left to the reading every ten minutes.
@@ -326,6 +336,36 @@ fn changed(event: notify::Result<Event>) -> Vec<Change> {
     }
 }
 
+/// Changes grouped during the settling period, before updating any disk.
+#[derive(Default)]
+struct ChangeBatch {
+    folders: BTreeSet<PathBuf>,
+    everything: bool,
+    reset: bool,
+}
+
+impl ChangeBatch {
+    fn take(&mut self, change: Change) {
+        match change {
+            Change::Folder(folder) => {
+                self.folders.insert(folder);
+            }
+            Change::Everything => self.everything = true,
+            Change::Reset => self.reset = true,
+        }
+    }
+
+    async fn collect(first: Change, changes: &mut mpsc::Receiver<Change>) -> Self {
+        let mut batch = Self::default();
+        batch.take(first);
+        let settle = Instant::now() + SETTLE;
+        while let Ok(Some(change)) = tokio::time::timeout_at(settle, changes.recv()).await {
+            batch.take(change);
+        }
+        batch
+    }
+}
+
 /// A disk the index covers.
 struct Root {
     id: String,
@@ -429,19 +469,7 @@ impl SearchIndex {
         launcher.background(true).await;
         let limit = launcher.inotify_limit().await;
         let mut roots = self.roots().await;
-        let mut watches = Watches::default();
-        let sender = self.changes.clone();
-        let overflowed = Arc::clone(&self.overflowed);
-        match notify::recommended_watcher(move |event| {
-            for change in changed(event) {
-                if let Err(mpsc::error::TrySendError::Full(_)) = sender.try_send(change) {
-                    overflowed.store(true, Ordering::Relaxed);
-                }
-            }
-        }) {
-            Ok(watcher) => watches.watcher = Some(watcher),
-            Err(error) => eprintln!("<4>the search cannot watch the disks: {error}"),
-        }
+        let mut watches = self.watch();
         let mut warned = Warned::default();
         for root in &mut roots {
             self.reconcile(root, &launcher).await;
@@ -463,49 +491,64 @@ impl SearchIndex {
                 self.warn(&watches, limit, &mut warned, &launcher).await;
                 continue;
             };
-            let mut folders = BTreeSet::new();
-            let mut everything = false;
-            let mut reset = false;
-            let mut take = |change: Change| match change {
-                Change::Folder(folder) => {
-                    folders.insert(folder);
-                }
-                Change::Everything => everything = true,
-                Change::Reset => reset = true,
-            };
-            take(first);
-            let settle = Instant::now() + SETTLE;
-            while let Ok(Some(change)) = tokio::time::timeout_at(settle, changes.recv()).await {
-                take(change);
-            }
-            everything |= self.overflowed.swap(false, Ordering::Relaxed) || reset;
-            if reset {
-                for root in &mut roots {
-                    self.ready.write().await.remove(&root.path);
-                    if let Err(error) = self.forget(&root.id).await {
-                        eprintln!("<4>the index of {} was not emptied: {error}", root.id);
-                    }
-                    root.ready = false;
-                    root.known.clear();
-                }
+            let mut batch = ChangeBatch::collect(first, &mut changes).await;
+            batch.everything |= self.overflowed.swap(false, Ordering::Relaxed) || batch.reset;
+            if batch.reset {
+                self.reset_roots(&mut roots).await;
             }
             if self.filesystem.verify_nas_mounts().is_err() {
                 continue;
             }
-            for root in &mut roots {
-                if everything {
-                    self.reconcile(root, &launcher).await;
-                } else if root.ready {
-                    let starts: Vec<PathBuf> = folders
-                        .iter()
-                        .filter(|folder| folder.starts_with(&root.path))
-                        .cloned()
-                        .collect();
-                    self.update_folders(root, starts, true).await;
-                }
-            }
+            self.update_roots(&mut roots, &batch, &launcher).await;
             watches = self.follow(watches, &mut roots, false).await;
             self.warn(&watches, limit, &mut warned, &launcher).await;
+        }
+    }
+
+    /// Installs the watcher; a full queue requests a complete rescan.
+    fn watch(&self) -> Watches {
+        let mut watches = Watches::default();
+        let sender = self.changes.clone();
+        let overflowed = Arc::clone(&self.overflowed);
+        match notify::recommended_watcher(move |event| {
+            for change in changed(event) {
+                if let Err(mpsc::error::TrySendError::Full(_)) = sender.try_send(change) {
+                    overflowed.store(true, Ordering::Relaxed);
+                }
+            }
+        }) {
+            Ok(watcher) => watches.watcher = Some(watcher),
+            Err(error) => eprintln!("<4>the search cannot watch the disks: {error}"),
+        }
+        watches
+    }
+
+    /// Clears every disk before rebuilding an explicitly reset index.
+    async fn reset_roots(&self, roots: &mut [Root]) {
+        for root in roots {
+            self.ready.write().await.remove(&root.path);
+            if let Err(error) = self.forget(&root.id).await {
+                eprintln!("<4>the index of {} was not emptied: {error}", root.id);
+            }
+            root.ready = false;
+            root.known.clear();
+        }
+    }
+
+    /// Applies a batch to each disk, reading only affected folders unless a rescan is needed.
+    async fn update_roots(&self, roots: &mut [Root], batch: &ChangeBatch, launcher: &Launcher) {
+        for root in roots {
+            if batch.everything {
+                self.reconcile(root, launcher).await;
+            } else if root.ready {
+                let starts: Vec<PathBuf> = batch
+                    .folders
+                    .iter()
+                    .filter(|folder| folder.starts_with(&root.path))
+                    .cloned()
+                    .collect();
+                self.update_folders(root, starts, true).await;
+            }
         }
     }
 

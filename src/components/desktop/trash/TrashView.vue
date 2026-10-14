@@ -89,8 +89,8 @@ async function load() {
     }
     children.value = next;
     opened.value = opened.value.filter((path) => (next[path] ?? []).length > 0);
-  } catch (failure) {
-    error.value = reason(failure);
+  } catch (error_) {
+    error.value = reason(error_);
   } finally {
     loading.value = false;
   }
@@ -104,8 +104,8 @@ async function toggle(entry: TrashEntry) {
   try {
     children.value = { ...children.value, [entry.path]: await listTrash(entry.path) };
     opened.value = [...opened.value, entry.path];
-  } catch (failure) {
-    error.value = reason(failure);
+  } catch (error_) {
+    error.value = reason(error_);
   }
 }
 
@@ -131,8 +131,8 @@ async function act(work: () => Promise<unknown>) {
   error.value = '';
   try {
     await work();
-  } catch (failure) {
-    error.value = reason(failure);
+  } catch (error_) {
+    error.value = reason(error_);
   } finally {
     busy.value = false;
   }
@@ -145,13 +145,13 @@ async function restore(entry: TrashEntry, replace = false) {
   try {
     await restoreFromTrash(entry.path, replace);
     emit('restored');
-  } catch (failure) {
-    if (failure instanceof TrashFailure && failure.status === 409) {
+  } catch (error_) {
+    if (error_ instanceof TrashFailure && error_.status === 409) {
       pending.value = { kind: 'replace', entry };
       busy.value = false;
       return;
     }
-    error.value = reason(failure);
+    error.value = reason(error_);
   } finally {
     busy.value = false;
   }

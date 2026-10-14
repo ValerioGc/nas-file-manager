@@ -160,9 +160,9 @@ it('marks a shared folder over its icon', async () => {
   expect(thumbnail.find('[data-testid="shared_badge"]').exists()).toBe(false);
   useShares().overview.value.shares = [shared];
   await flushPromises();
-  expect(thumbnail.get('[data-testid="shared_badge"]').attributes('aria-label')).toBe(
-    'Shared on the network',
-  );
+  const badge = thumbnail.get('svg[data-testid="shared_badge"]');
+  expect(badge.attributes('aria-label')).toBe('Shared on the network');
+  expect(badge.get('title').text()).toBe('Shared on the network');
 });
 
 it('lists the shared folders after the favorites', async () => {

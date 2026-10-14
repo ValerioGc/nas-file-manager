@@ -180,15 +180,22 @@ onBeforeUnmount(() => {
       @error="previewFailed"
     />
     <img v-else-if="!isPreviewLoading" :src="thumbnailIcons[file.kind]" alt="" loading="lazy" />
-    <span
+    <svg
       v-if="shared"
       class="file_thumbnail_shared"
-      role="img"
+      viewBox="0 0 100 100"
       :aria-label="t.sharedBadge"
-      :title="t.sharedBadge"
       data-testid="shared_badge"
-      :style="{ '--share-icon': `url(${JSON.stringify(shareIcon)})` }"
-    ></span>
+    >
+      <title>{{ t.sharedBadge }}</title>
+      <rect
+        x="18%"
+        y="18%"
+        width="64%"
+        height="64%"
+        :style="{ '--share-icon': `url(${JSON.stringify(shareIcon)})` }"
+      />
+    </svg>
   </span>
 </template>
 
@@ -226,11 +233,8 @@ onBeforeUnmount(() => {
     border-radius: 50%;
     background: var(--accent);
 
-    &::after {
-      content: '';
-      position: absolute;
-      inset: 18%;
-      background: var(--surface);
+    rect {
+      fill: var(--surface);
       mask: var(--share-icon) center / contain no-repeat;
     }
   }
