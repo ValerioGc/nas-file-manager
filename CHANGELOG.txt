@@ -1,0 +1,262 @@
+# Changelog
+
+All notable changes to nas-file-manager are documented in this file.
+
+## [Unreleased]
+
+### Added
+
+- Settings of the details panel: off altogether, or on in the grid view or the list view only.
+  Where the panel is off, a click on a folder opens it; a file still opens with a double click.
+
+### Changed
+
+- The texts of the interface, in Italian and English, are impersonal and shorter: no ellipsis,
+  colon or semicolon, no names of internal programs, commands or variables.
+- The settings use the switches and the number stepper of the shared library, and have no close
+  button at their bottom. The settings button is larger.
+- The trash shows its note in a banner, empties itself from an icon button, disabled while it
+  holds nothing, and says it is empty in a placeholder. The breadcrumb ends with a separator.
+- Every field has an id or a name, so that the browser no longer warns about them.
+
+### Removed
+
+- Unused texts (`archives`, `available`, `files`, `items`, `theme`), styles never applied
+  (`.danger` of the context menu, `.empty_state`, `.full_width`, `.workspace_heading_row`, the
+  short line of the loading skeleton) and comments that only named the markup below them.
+
+## [0.1.22]
+
+### Fixed
+
+- Refuse linked trash directories and operations on the trash root; keep new parent directories
+  writable by the storage group.
+- Keep deletion dates per file version, preserve existing dates during migration, and date every
+  descendant of a deleted directory without resetting sibling ages; expire empty directories too.
+- Complete the file picker preview mock so component tests report no unhandled rejection.
+
+### Added
+
+- Folders shared on the local network with Samba (SMB, for Windows and Linux): from the menu of a
+  folder, Share on the network opens a window with the permissions (read only, or read and write)
+  and the protection with the password of the account. The gateway checks that password and hands
+  it to Samba; the application never sees it, and asks for it only for the first protected share.
+  A shared folder carries a badge over its icon, and the side menu lists them under Shared. The
+  list is in the database of the application (`api/shares`) and goes to the launcher at every
+  change and at start (`PUT /api/apps/self/shares`); a renamed, moved or deleted folder takes its
+  share along. The manifest asks for `permissions.shares` and the Debian package `samba`.
+- A search index of the disks (network shares excluded) in the database of the application: the
+  search, of the Explorer and of the launcher, finds any part of a name at once and everywhere,
+  without the old limits of depth and of files read. Its first build shows among the operations of
+  the NAS, and until then the search walks the disk as before. Each folder is then watched with
+  inotify (new dependency `notify`, the same as nas-backup-manager), and at start the folders whose
+  time changed are read again. Past the inotify limit of the user the extra folders are read again
+  every 10 minutes, and a notification says when the watches reach 80% of the limit and when they
+  pass it. The manifest sets `run.background`: the Explorer starts with the NAS and stays on with
+  its window closed, at the lower priority of the background.
+- A trash for each disk, on by default: a deletion moves the file or folder to
+  `<disk>/.nas-trash` with the tree it came from, one version for each path (a new one replaces
+  the old). The side menu has Trash, with the deleted folders by disk, their size and the time they
+  went in: Restore (asking before replacing what took the path meanwhile), Delete for good, Empty.
+  Settings, General tab: the trash on or off, the days before an item leaves (30, checked once a
+  day) and Empty trash. The time of a deletion is the ctime of the disk, or the one the Explorer
+  keeps for its own deletions and for disks without a reliable ctime (exFAT, NTFS). The files
+  deleted from a network share go to the same trash, through the `recycle` module of Samba, when
+  the launcher knows it (`recycle` in `GET /api/apps/self/shares`). The trash is never listed,
+  searched or indexed. The `trash` capability (`/internal/trash`) lets the Cleanup app empty it.
+- The `cache` capability (`/internal/cache`, for the launcher only): the previews and the search
+  index, with their size and items, emptied on request; the index is built again at once.
+
+### Changed
+
+- The files of `assets/`, with a hash of their content in the name, are served with
+  `Cache-Control: public, max-age=31536000, immutable`, the page with `no-store` as before: the browser keeps
+  the scripts and the styles between visits instead of asking for them again through the gateway
+  and the launcher.
+- Previews of the images: two sizes (256 px for the lists and the grid, 640 px for the details),
+  JPEG (PNG only when some of the image is transparent), turned as the camera said (EXIF), never
+  enlarged, at most two decoded at once. They stay on the NAS up to a room chosen in the settings
+  (Previews, from 100 MB to 2 GB, 2 GB by default, `api/previews/cache`), the ones read least
+  recently going first, under a name that no longer changes with the compiler. The browser asks
+  only for the previews on the screen and keeps them between visits (their address changes with
+  the file). The previews made before are made again once.
+- Cut stays inside the NAS: it no longer writes the paths to the clipboard of the system. A move
+  between two disks, which a rename cannot do, copies and then removes the original; a folder is
+  never moved inside itself. The scissors and paste icons of the menu follow the others.
+- An empty folder, the favorites, the shared folders and a search with no result each show a
+  symbol, a title and what to do (`EmptyPlaceholder`, the same as the file picker).
+- Going from a folder to the favorites or the shared folders and back to all the files returns to
+  that folder. The items of the side menu sit closer together.
+
+- The file picker: its title and the cross that cancels it on one row (Escape cancels too); back,
+  a home button and the path as a trail of `/` on the left, search, new folder or file and the
+  views on the right; the button says Select. An empty folder, or a search that finds nothing,
+  shows a symbol and says what to do.
+- The table of the documents is `STRICT`. An existing database does not open: install from
+  scratch.
+- The launcher bridge, the shared styles, the stored documents and the build, package and release
+  scripts come from the shared library `@valeriogc/nas-base-app`; only the package smoke test with
+  its temporary storage stays in `scripts/`.
+
+## [0.1.21]
+
+### Changed
+
+- Settings and favorites are kept by the backend, in a SQLite database of the application
+  (`api/documents/preferences` and `api/documents/favorites`), never the launcher's: every browser
+  that opens the NAS sees the same ones. What this browser kept before is carried over once.
+- One interface on every screen: the separate mobile layout (with its categories of files) is gone,
+  and on a phone the explorer is the desktop one, with the side menu sliding in from the button of
+  the header, folders and archives opened with a tap, no dragging, and the actions of a file in its
+  details. The dialogs fit inside the margin of the screen.
+- The settings: General (confirmation before deleting, free space), Previews, File list, and
+  Appearance only outside the launcher, which sets theme and language itself (the tab was empty
+  there). The confirmation before deleting is now honored.
+- In the frame of the launcher the application keeps the rules of its old sandbox by itself
+  (`src/services/frameGuard.ts`, called first in `main.ts`): no window of its own, no
+  `alert`/`confirm`/`prompt` dialog, no navigation of the page that holds it. The launcher dropped
+  the sandbox, which on its origin was no wall and made the browser warn: nothing else changes.
+- The file picker: back and search as icons, a smaller search field like the explorer's, then a
+  divider and the commands to create a folder (and a file, when picking files) in the folder
+  being browsed.
+- The file picker switches between the list (by default) and a grid of previews, says when a
+  folder has nothing to show, and names the disks by their name instead of their id.
+- The focus ring of the search field goes around the whole field.
+- The text of the primary buttons follows the theme (`--on-accent`), readable on the bright
+  accent of the dark theme.
+
+### Fixed
+
+- Nothing asks the browser any more for a name, a folder or a confirmation (`prompt`, `confirm`),
+  which inside the launcher answered nothing: the Copy of the details panel opens the window of
+  the move in its copy version, and in the mobile layout Rename and New folder open the window of
+  the name, as on the desktop. Both layouts share these windows (`useNameDialog`,
+  `useTransferDialog`).
+
+
+## [0.1.20]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.19]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.18]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.17]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.16]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.15]
+
+### Changed
+
+- The surfaces follow the theme chosen in the launcher for its type, through the colours of the
+  context; outside the launcher the application keeps its own.
+
+## [0.1.14]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.13]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.12]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.11]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.10]
+
+### Changed
+
+- Remove recent files feature and update navigation.
+
+## [0.1.9]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.8]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.7]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.6]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.5]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.4]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.3]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.2]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.1]
+
+### Changed
+
+- Maintenance release.
+
+## [0.1.0]
+
+### Added
+
+- Explorer di file e cartelle con interfacce web, desktop e mobile.

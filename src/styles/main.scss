@@ -1,0 +1,192 @@
+@use './global' as *;
+@use '@valeriogc/nas-base-app/styles/_nas-theme.scss';
+@use '@valeriogc/nas-base-app/styles/partials/_reset.scss';
+@use './partials/reset' as app_reset;
+@use '@valeriogc/nas-base-app/styles/_nas-apps.scss';
+@use './partials/theme';
+@use '@valeriogc/nas-base-app/styles/_nas-scrollbar.scss';
+@use '@valeriogc/nas-base-app/styles/_nas-switch.scss';
+@use '@valeriogc/nas-base-app/styles/_nas-number-stepper.scss';
+.visually_hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+// The label of a SettingsRow toggle: it covers the whole row, so the row toggles its control.
+.settings_row_label {
+  cursor: pointer;
+
+  &::after {
+    position: absolute;
+    inset: 0;
+    content: '';
+  }
+}
+
+.icon_button {
+  @extend %grid_center;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 9px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 18px;
+
+  &:hover {
+    color: var(--text);
+    background: var(--surface-soft);
+  }
+}
+
+.icon_asset {
+  display: block;
+  width: 1em;
+  height: 1em;
+  object-fit: contain;
+}
+
+.button {
+  @include flex_layout(center, center, row, 8px, nowrap, inline-flex);
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 700;
+
+  &.primary {
+    color: var(--on-accent);
+    background: var(--accent);
+    box-shadow: 0 7px 16px rgba(102, 84, 232, 0.2);
+  }
+  &.secondary {
+    border: 1px solid var(--border);
+    color: var(--text);
+    background: var(--surface);
+  }
+}
+
+// The search field and the vertical divider of the toolbars: the explorer and the picker.
+.search_box {
+  @extend %fx_row_center;
+  min-width: 160px;
+  flex: 1 1 360px;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+  background: var(--surface);
+
+  input {
+    width: 100%;
+    min-height: 38px;
+    border: 0;
+    outline: 0;
+    color: var(--text);
+    background: transparent;
+    font-size: 12px;
+  }
+
+  // The focus ring goes around the whole field, not the input inside it.
+  &:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  input:focus-visible {
+    outline: 0;
+  }
+}
+
+.toolbar_divider {
+  width: 1px;
+  height: 28px;
+  flex: 0 0 1px;
+  background: var(--border);
+}
+
+// The switch between the list and the grid of the files: the explorer and the picker.
+.view_switcher {
+  @extend %fx_row_center;
+  min-width: 0;
+  margin: 0;
+  gap: 2px;
+  padding: 2px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface-soft);
+
+  .icon_button {
+    width: 31px;
+    height: 31px;
+    font-size: 16px;
+
+    &.active {
+      color: var(--accent);
+      background: var(--surface);
+    }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+  }
+}
+
+.muted {
+  color: var(--muted);
+}
+.empty_preview {
+  display: grid;
+  min-height: 150px;
+  place-items: center;
+  padding: 24px;
+  color: var(--muted);
+  text-align: center;
+}
+.row_menu {
+  color: var(--muted);
+  letter-spacing: 0.08em;
+}
+.overlay,
+.modal_backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  background: rgba(18, 20, 34, 0.42);
+}
+.overlay {
+  display: none;
+}
+.modal_backdrop {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.segmented {
+  @include flex_layout(center, flex-start, row, 6px, wrap);
+}
+.segmented button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--surface-soft);
+}
+.segmented button.active {
+  color: #fff;
+  background: var(--accent);
+}
+input[type='checkbox'] {
+  width: 38px;
+  height: 22px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+}

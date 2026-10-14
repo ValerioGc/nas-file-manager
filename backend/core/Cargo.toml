@@ -1,0 +1,11 @@
+[package]
+name = "fs-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["bmp", "gif", "jpeg", "png", "webp"] }
+rars = { version = "=0.9.4", default-features = false }
+sevenz-rust2 = { version = "=0.23.0", default-features = false, features = ["aes256"] }
+serde = { version = "1", features = ["derive"] }
+zip = { version = "=8.6.0", default-features = false, features = ["aes-crypto", "deflate"] }

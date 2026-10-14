@@ -1,0 +1,9 @@
+// What is written on the accent, as in the launcher: white on the dark accent of the light theme,
+// dark on the bright accent of the dark one.
+:root {
+  --on-accent: #ffffff;
+}
+
+:root[data-theme='dark'] {
+  --on-accent: #0e1922;
+}

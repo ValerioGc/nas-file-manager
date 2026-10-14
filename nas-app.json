@@ -1,0 +1,46 @@
+{
+  "manifest_version": 1,
+  "app": {
+    "id": "nas-file-manager",
+    "name": "Explorer",
+    "version": "0.1.22",
+    "icon": "icon.svg",
+    "category": "storage",
+    "system": true
+  },
+  "run": {
+    "exec": "bin/nas-file-manager-axum",
+    "socket": "/run/nas-os/apps/nas-file-manager.sock",
+    "background": true
+  },
+  "ui": {
+    "protocol": 1
+  },
+  "provides": [
+    {
+      "capability": "search",
+      "version": 1,
+      "endpoint": "/api/launcher/search"
+    },
+    {
+      "capability": "file-picker",
+      "version": 1,
+      "endpoint": "/"
+    },
+    {
+      "capability": "cache",
+      "version": 1,
+      "endpoint": "/internal/cache"
+    },
+    {
+      "capability": "trash",
+      "version": 1,
+      "endpoint": "/internal/trash"
+    }
+  ],
+  "permissions": {
+    "paths": ["/srv/storage"],
+    "packages": ["samba"],
+    "shares": true
+  }
+}
