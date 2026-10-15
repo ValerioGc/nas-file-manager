@@ -31,3 +31,19 @@ it('offers a desktop shortcut only for a folder inside the launcher', async () =
   expect(wrapper.emitted('action')?.[0]).toEqual(['shortcut']);
   wrapper.unmount();
 });
+
+it('limits drive actions to opening it, and switches between hide and unhide for files', async () => {
+  const wrapper = mount(ContextMenu, {
+    props: { file: folder, files: [folder], x: 0, y: 0, drive: true, canPaste: true },
+  });
+  expect(wrapper.findAll('[role="menuitem"]').map((item) => item.text())).toEqual(['Open drive']);
+  await wrapper.get('[role="menuitem"]').trigger('click');
+  expect(wrapper.emitted('action')?.at(-1)).toEqual(['open-drive']);
+  await wrapper.setProps({ drive: false });
+  expect(wrapper.text()).toContain('Hide');
+  const hidden = { ...folder, name: '.Documents', hidden: true };
+  await wrapper.setProps({ file: hidden, files: [hidden] });
+  const show = wrapper.findAll('[role="menuitem"]').find((item) => item.text() === 'Unhide')!;
+  await show.trigger('click');
+  expect(wrapper.emitted('action')?.at(-1)).toEqual(['show']);
+});

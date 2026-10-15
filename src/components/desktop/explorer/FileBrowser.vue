@@ -8,6 +8,8 @@ import shareIcon from '@/assets/icons/share.svg?url';
 import starFilledIcon from '@/assets/icons/star-filled.svg?url';
 import starIcon from '@/assets/icons/star.svg?url';
 import storageIcon from '@/assets/icons/storage.svg?url';
+import usbDriveIcon from '@/assets/icons/usb-drive.svg?url';
+import networkDriveIcon from '@/assets/icons/network-drive.svg?url';
 import folderIcon from '@/assets/icons/thumbnail-folder.svg?url';
 import ContextMenu from '@/components/common/ContextMenu.vue';
 import EmptyPlaceholder from '@/components/common/EmptyPlaceholder.vue';
@@ -100,6 +102,11 @@ function reportShare(message: string) {
 }
 
 const DRIVE_KINDS: VolumeKind[] = ['device', 'external', 'network'];
+const driveIcons: Record<VolumeKind, string> = {
+  device: storageIcon,
+  external: usbDriveIcon,
+  network: networkDriveIcon,
+};
 const groupTitles = computed<Record<VolumeKind, string>>(() => ({
   device: t.value.dataDisks,
   external: t.value.externalDisks,
@@ -275,7 +282,7 @@ function selectFile(file: FileEntry, event: MouseEvent) {
 }
 
 function openEmptyContextMenu(event: MouseEvent) {
-  if (event.target !== event.currentTarget) {
+  if (isComputerRoot.value || event.target !== event.currentTarget) {
     return;
   }
   contextFile.value = null;
@@ -330,6 +337,13 @@ async function addDesktopShortcut(folder: FileEntry) {
 async function handleContextAction(action: DesktopContextAction) {
   const file = contextFile.value;
   const selectedFiles = contextFiles.value;
+  if (action === 'open-drive') {
+    if (file) {
+      handleFileDoubleClick(file);
+    }
+    closeContextMenu();
+    return;
+  }
   if (action === 'paste') {
     await pasteClipboard();
     return;
@@ -404,8 +418,8 @@ async function handleContextAction(action: DesktopContextAction) {
         :data-testid="`drive_group_${group.kind}`"
       >
         <h2 class="drive_group_title">{{ groupTitles[group.kind] }}</h2>
-        <div class="drive_grid">
-          <button
+        <div class="drive_grid" :class="{ drive_list: viewMode === 'list' }">
+          <div
             v-for="file in group.files"
             :key="file.path"
             class="computer_drive_card"
@@ -413,28 +427,40 @@ async function handleContextAction(action: DesktopContextAction) {
               selected: isFileSelected(file),
               drop_target: dropTargetPath === file.path,
             }"
-            :aria-selected="isFileSelected(file)"
-            :draggable="!isTouch"
-            @click="handleFileClick(file, $event)"
-            @dblclick="handleFileDoubleClick(file)"
             @contextmenu="openContextMenu(file, $event)"
-            @dragstart="handleDragStart(file, $event)"
-            @dragend="handleDragEnd"
             @dragover="handleDragOver(file, $event)"
             @dragleave="handleDragLeave(file, $event)"
             @drop="handleDrop(file, $event)"
           >
-            <span class="computer_drive_icon" aria-hidden="true">
-              <img class="icon_asset" :src="storageIcon" alt="" />
-            </span>
-            <span class="computer_drive_copy">
-              <strong>{{ getDisplayFileName(file, preferences.showFileExtensions) }}</strong>
-              <small>{{ driveLabels[group.kind] }}</small>
-            </span>
-            <span class="computer_drive_chevron" aria-hidden="true">
+            <button class="drive_open" type="button" @click="handleFileDoubleClick(file)">
+              <span class="computer_drive_icon" aria-hidden="true">
+                <img class="icon_asset" :src="driveIcons[group.kind]" alt="" />
+              </span>
+              <span class="computer_drive_copy">
+                <strong>{{ getDisplayFileName(file, preferences.showFileExtensions) }}</strong>
+                <small>{{ driveLabels[group.kind] }}</small>
+              </span>
+            </button>
+            <button
+              v-if="viewMode === 'list'"
+              class="icon_button"
+              type="button"
+              :aria-label="t.openDrive"
+              :title="t.openDrive"
+              @click="handleFileDoubleClick(file)"
+            >
               <img class="icon_asset" :src="chevronRightIcon" alt="" />
-            </span>
-          </button>
+            </button>
+            <button
+              class="icon_button"
+              type="button"
+              :aria-label="t.fileActions"
+              :title="t.fileActions"
+              @click="openContextMenu(file, $event)"
+            >
+              <img class="icon_asset" :src="moreIcon" alt="" />
+            </button>
+          </div>
         </div>
       </section>
     </div>
@@ -542,6 +568,7 @@ async function handleContextAction(action: DesktopContextAction) {
     :x="contextPosition.x"
     :y="contextPosition.y"
     :can-paste="canPaste"
+    :drive="isComputerRoot"
     @action="handleContextAction"
     @close="closeContextMenu"
   />
@@ -609,7 +636,7 @@ async function handleContextAction(action: DesktopContextAction) {
 
 .file_row {
   width: 100%;
-  padding: 12px 16px;
+  padding: 15px 16px;
   border-bottom: 1px solid var(--border);
   color: var(--text);
   background: var(--surface);
@@ -622,7 +649,7 @@ async function handleContextAction(action: DesktopContextAction) {
 
   &:hover,
   &.selected {
-    background: var(--surface-soft);
+    background: var(--navigation-hover, var(--surface-soft));
   }
 
   &.drop_target {
@@ -680,7 +707,7 @@ async function handleContextAction(action: DesktopContextAction) {
 .file_grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
 .file_card {
@@ -688,7 +715,7 @@ async function handleContextAction(action: DesktopContextAction) {
   display: grid;
   min-width: 0;
   gap: 8px;
-  padding: 14px;
+  padding: 17px;
   border: 1px solid var(--border);
   border-radius: 14px;
   color: var(--text);
@@ -698,7 +725,7 @@ async function handleContextAction(action: DesktopContextAction) {
   &:hover,
   &.selected {
     border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-    background: var(--surface-soft);
+    background: var(--navigation-hover, var(--surface-soft));
   }
 
   &_thumbnail {
@@ -748,18 +775,51 @@ async function handleContextAction(action: DesktopContextAction) {
 
 .drive_grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   gap: 14px;
   align-content: start;
+}
+
+.drive_list {
+  grid-template-columns: minmax(0, 1fr);
+
+  .computer_drive_card {
+    min-height: var(--drive-list-height, 72px);
+    padding: var(--drive-list-padding, 12px 16px);
+  }
+
+  .computer_drive_icon {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+  }
+
+  .computer_drive_copy {
+    flex: 1;
+    grid-template-columns: minmax(0, 1fr) minmax(100px, 0.5fr);
+    align-items: center;
+  }
+}
+
+.drive_open {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
 }
 
 .computer_drive_card {
   display: flex;
   min-width: 0;
-  min-height: 104px;
+  min-height: var(--drive-card-height, 104px);
   align-items: center;
   gap: 14px;
-  padding: 18px;
+  padding: var(--drive-card-padding, 18px);
   border: 1px solid var(--border);
   border-radius: 16px;
   color: var(--text);
@@ -773,7 +833,7 @@ async function handleContextAction(action: DesktopContextAction) {
   &:hover,
   &.selected {
     border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-    background: var(--surface-soft);
+    background: var(--navigation-hover, var(--surface-soft));
     transform: translateY(-1px);
   }
 
@@ -815,20 +875,6 @@ async function handleContextAction(action: DesktopContextAction) {
   }
 }
 
-.computer_drive_chevron {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  flex: 0 0 24px;
-  margin-left: auto;
-  place-items: center;
-
-  .icon_asset {
-    width: 18px;
-    height: 18px;
-  }
-}
-
 .row_menu {
   display: grid;
   width: 24px;
@@ -867,6 +913,20 @@ async function handleContextAction(action: DesktopContextAction) {
   .file_row > span:nth-child(3) {
     display: none;
   }
+}
+
+.file_row.selected,
+.file_card.selected,
+.computer_drive_card.selected {
+  background: var(--navigation-selected, var(--surface-soft));
+  box-shadow: var(--navigation-marker, none);
+}
+
+.file_row:focus-visible,
+.file_card:focus-visible,
+.computer_drive_card:focus-within {
+  outline: var(--navigation-focus, none);
+  outline-offset: -2px;
 }
 
 </style>

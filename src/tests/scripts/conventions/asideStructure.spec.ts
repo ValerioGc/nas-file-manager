@@ -31,7 +31,7 @@ describe('desktop aside structure', () => {
     expect(aside).toContain("from '@/assets/icons/star.svg?url'");
     expect(aside).not.toContain('recent');
     expect(aside).toContain('type NavigationItem');
-    expect(aside).toContain('const navigationItems = computed<NavigationItem[]>(() => [');
+    expect(aside).toContain('const navigationItems = computed<NavigationItem[]>(');
     expect(aside).toContain("'select-navigation': [navigation: DesktopNavigation]");
     expect(aside).toContain('@click="handleNavigationClick(item)"');
     expect(aside).toContain(':key="item.id"');

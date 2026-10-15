@@ -1,6 +1,7 @@
 <script setup lang="ts">
 
-import { computed, toRefs } from 'vue';
+import { computed, onMounted, onBeforeUnmount, toRefs } from 'vue';
+import { refreshTrashUsage, useTrash } from '@/composables/useTrash';
 import deleteIcon from '@/assets/icons/delete.svg?url';
 import gridIcon from '@/assets/icons/grid.svg?url';
 import shareIcon from '@/assets/icons/share.svg?url';
@@ -33,6 +34,17 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const { preferences } = usePreferences();
+const { items: trashItems } = useTrash();
+let usageTimer: ReturnType<typeof setInterval>;
+onMounted(() => {
+  void refreshTrashUsage();
+  usageTimer = setInterval(() => void refreshTrashUsage(), 60_000);
+  window.addEventListener('focus', refreshTrashUsage);
+});
+onBeforeUnmount(() => {
+  clearInterval(usageTimer);
+  window.removeEventListener('focus', refreshTrashUsage);
+});
 const { moveFilesToDestination } = useDesktopExplorerContext();
 
 const sidebarControlLabel = computed(() => {
@@ -60,32 +72,36 @@ type NavigationItem = {
   active: boolean;
 };
 
-const navigationItems = computed<NavigationItem[]>(() => [
-  {
-    id: 'all-files',
-    label: t.value.allFiles,
-    icon: gridIcon,
-    active: activeNavigation.value === 'all-files',
-  },
-  {
-    id: 'favorites',
-    label: t.value.favorites,
-    icon: starIcon,
-    active: activeNavigation.value === 'favorites',
-  },
-  {
-    id: 'shared',
-    label: t.value.shared,
-    icon: shareIcon,
-    active: activeNavigation.value === 'shared',
-  },
-  {
-    id: 'trash',
-    label: t.value.trash,
-    icon: deleteIcon,
-    active: activeNavigation.value === 'trash',
-  },
-]);
+const navigationItems = computed<NavigationItem[]>(() =>
+  (
+    [
+      {
+        id: 'all-files',
+        label: t.value.allFiles,
+        icon: gridIcon,
+        active: activeNavigation.value === 'all-files',
+      },
+      {
+        id: 'favorites',
+        label: t.value.favorites,
+        icon: starIcon,
+        active: activeNavigation.value === 'favorites',
+      },
+      {
+        id: 'shared',
+        label: t.value.shared,
+        icon: shareIcon,
+        active: activeNavigation.value === 'shared',
+      },
+      {
+        id: 'trash',
+        label: t.value.trash,
+        icon: deleteIcon,
+        active: activeNavigation.value === 'trash',
+      },
+    ] satisfies NavigationItem[]
+  ).filter((item) => item.id !== 'trash' || trashItems.value > 0),
+);
 
 function handleNavigationClick(item: NavigationItem) {
   emit('select-navigation', item.id);
@@ -329,8 +345,18 @@ function handleFolderDrop(files: FileEntry[], destination: FolderNode) {
 
   .nav_item.active {
     color: var(--accent);
-    background: var(--accent-soft);
+    background: var(--navigation-selected, var(--accent-soft));
+    box-shadow: var(--navigation-marker, none);
     font-weight: 650;
+  }
+
+  .nav_item:hover {
+    background: var(--navigation-hover, var(--surface-soft));
+  }
+
+  .nav_item:focus-visible {
+    outline: var(--navigation-focus, none);
+    outline-offset: -2px;
   }
 
   .nav_icon {

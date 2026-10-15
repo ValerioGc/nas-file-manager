@@ -26,7 +26,7 @@ describe('desktop explorer structure', () => {
     expect(explorerView).toContain('isDetailsCollapsed');
     expect(explorerView).toContain('selectedFiles');
     // The panel shows only where the settings want it, and only with files to describe.
-    expect(explorerView).toContain('files.value.length > 0 && showsDetails(preferences.value');
+    expect(explorerView).toMatch(/files.value.length > 0\s*&&\s*showsDetails\(preferences.value/);
     expect(explorerView).toContain('v-if="!isNarrowDesktop && details"');
     expect(explorerView).toContain('no_details: !details || isNarrowDesktop');
     expect(explorerView).toContain('show-actions');

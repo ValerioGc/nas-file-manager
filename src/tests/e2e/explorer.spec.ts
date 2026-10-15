@@ -75,6 +75,11 @@ test('the packaged bundle keeps API requests under Explorer even when the page p
       path: resolve(dist, url.pathname.replace('/apps/nas-file-manager/', '')),
     });
   });
+  await page.route('**/api/documents/preferences', (route) =>
+    route.request().method() === 'PUT'
+      ? route.fulfill({ status: 204 })
+      : route.fulfill({ json: { preferences: {}, themeMode: 'dark' } }),
+  );
 
   await page.goto('/bundle-page?theme=dark');
   await expect(page.getByRole('button', { name: 'Documents', exact: true }).first()).toBeVisible();
@@ -93,6 +98,30 @@ test('the packaged bundle keeps API requests under Explorer even when the page p
   expect(apiPaths).toContain('/apps/nas-file-manager/api/files');
   expect(apiPaths).toContain('/apps/nas-file-manager/api/storage');
   expect(rootApiPaths).toEqual([]);
+
+  await page.locator('.sidebar').getByRole('button', { name: 'Documents', exact: true }).click();
+  const row = page.locator('.file_row').filter({ hasText: 'report.txt' });
+  const treeItem = page.locator('.tree_item_button').first();
+  await expect(row).toBeVisible();
+  const normalRowHeight = (await row.boundingBox())!.height;
+  const normalTreeHeight = (await treeItem.boundingBox())!.height;
+  await row.click();
+  const normalSelection = await row.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('tab', { name: 'File list' }).click();
+  await page.getByTestId('settings_compact_list_switch').click();
+  await page.getByTestId('settings_colored_navigation_switch').click();
+  await page.locator('.settings_modal .modal_close').click();
+  await expect(page.locator('.app_shell')).toHaveClass(/compact_list/);
+  expect((await row.boundingBox())!.height).toBeLessThan(normalRowHeight - 10);
+  expect((await treeItem.boundingBox())!.height).toBeLessThan(normalTreeHeight - 8);
+  await expect
+    .poll(() => row.evaluate((element) => getComputedStyle(element).backgroundColor))
+    .not.toBe(normalSelection);
+  expect(await row.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe('none');
+  await page.screenshot({ path: '/tmp/nas-explorer-compact-accent.png', fullPage: true });
 });
 
 test('opens a desktop folder and returns through the breadcrumb', async ({ page }) => {
@@ -252,8 +281,17 @@ test('groups the volumes of the NAS by kind, on the home page and in the tree', 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('NAS');
   await expect(tree.getByRole('button', { name: 'NAS', exact: true })).toBeVisible();
 
-  const panel = page.getByRole('complementary', { name: 'Details' });
-  await expect(panel.getByRole('button', { name: 'Expand details' })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Details' })).toHaveCount(0);
+  const icons = await page
+    .locator('.computer_drive_icon img')
+    .evaluateAll((images) => images.map((image) => (image as HTMLImageElement).src));
+  expect(new Set(icons).size).toBe(3);
+  await page
+    .locator('.computer_drive_card')
+    .first()
+    .getByRole('button', { name: 'File actions' })
+    .click();
+  await expect(page.getByRole('menuitem')).toHaveText(['Open drive']);
   await expect(page.getByRole('searchbox', { name: 'Search' })).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Sort files' })).toHaveCount(0);
 });
@@ -455,5 +493,54 @@ test('a deleted file goes to the trash of its disk and comes back from there', a
   } finally {
     await page.request.delete('/api/files?path=Documents%2Fe2e-trashed.txt');
     await page.request.post('/api/trash/empty', { data: {} });
+  }
+});
+
+test('hides from the menu, filters hidden files and unhides from details without changing content', async ({
+  page,
+}) => {
+  let preferences: unknown = { preferences: { showHiddenFiles: false } };
+  await page.route('**/api/documents/preferences', async (route) => {
+    if (route.request().method() === 'PUT') {
+      preferences = route.request().postDataJSON();
+      return route.fulfill({ status: 204 });
+    }
+    return route.fulfill({ json: preferences });
+  });
+  const name = 'e2e-hidden-content.txt';
+  const path = `Documents/${name}`;
+  const hiddenPath = `Documents/.${name}`;
+  const uploaded = await page.request.post(`/api/uploads?path=${encodeURIComponent(path)}`, {
+    data: Buffer.from('content to preserve'),
+  });
+  expect(uploaded.ok()).toBe(true);
+  try {
+    await page.goto('/?path=%2FDocuments');
+    const row = page.locator('.file_row').filter({ hasText: name });
+    await row.click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Hide', exact: true }).click();
+    await expect(row).toHaveCount(0);
+    const hidden = await page.request.get(`/api/downloads?path=${encodeURIComponent(hiddenPath)}`);
+    expect(hidden.ok()).toBe(true);
+    expect(await hidden.text()).toBe('content to preserve');
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('tab', { name: 'File list' }).click();
+    await page.getByTestId('settings_show_hidden_files_switch').click();
+    await page.locator('.settings_modal .modal_close').click();
+    await expect(row).toBeVisible();
+    await row.click();
+    await page.getByRole('button', { name: 'Expand details panel', exact: true }).click();
+    await page
+      .locator('.details_panel')
+      .getByRole('button', { name: 'Unhide', exact: true })
+      .click();
+    await expect(row.locator('strong')).toHaveText(name);
+    const visible = await page.request.get(`/api/downloads?path=${encodeURIComponent(path)}`);
+    expect(await visible.text()).toBe('content to preserve');
+  } finally {
+    for (const candidate of [path, hiddenPath]) {
+      await page.request.delete(`/api/files?path=${encodeURIComponent(candidate)}`);
+      await page.request.delete(`/api/trash?path=${encodeURIComponent(candidate)}`);
+    }
   }
 });

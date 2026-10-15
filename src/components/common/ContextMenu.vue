@@ -11,6 +11,10 @@ import renameIcon from '@/assets/icons/rename.svg?url';
 import shareIcon from '@/assets/icons/share.svg?url';
 import starIcon from '@/assets/icons/star.svg?url';
 import folderIcon from '@/assets/icons/thumbnail-folder.svg?url';
+import { isHiddenEntry } from '@/utils/fileDisplay';
+import hiddenIcon from '@/assets/icons/hidden.svg?url';
+import visibleIcon from '@/assets/icons/visible.svg?url';
+import chevronRightIcon from '@/assets/icons/chevron-right.svg?url';
 import { useFavorites } from '@/composables/useFavorites';
 import { useShares } from '@/composables/useShares';
 import { useI18n } from '@/i18n';
@@ -27,6 +31,9 @@ export type ContextAction =
   | 'paste'
   | 'rename'
   | 'share'
+  | 'hide'
+  | 'show'
+  | 'open-drive'
   | 'shortcut';
 type MenuAction = {
   type: ContextAction;
@@ -41,6 +48,7 @@ const props = defineProps<{
   x: number;
   y: number;
   canPaste?: boolean;
+  drive?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -55,11 +63,27 @@ const firstAction = ref<HTMLButtonElement | null>(null);
 
 const actions = computed<MenuAction[]>(() => {
   const labels = t.value;
+  if (props.drive) {
+    return [
+      {
+        type: 'open-drive',
+        label: labels.openDrive,
+        icon: chevronRightIcon,
+        visible: Boolean(props.file),
+      },
+    ];
+  }
   const hasSingleSelection = props.files.length === 1;
   const hasSelection = props.files.length > 0;
   const allFavorites = props.files.length > 0 && props.files.every((file) => isFavorite(file.path));
 
   return [
+    {
+      type: props.file && isHiddenEntry(props.file) ? 'show' : 'hide',
+      label: props.file && isHiddenEntry(props.file) ? labels.showFile : labels.hideFile,
+      icon: props.file && isHiddenEntry(props.file) ? visibleIcon : hiddenIcon,
+      visible: hasSingleSelection,
+    },
     { type: 'rename', label: labels.rename, icon: renameIcon, visible: hasSingleSelection },
     {
       type: 'favorite',

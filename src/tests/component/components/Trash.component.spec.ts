@@ -3,8 +3,9 @@ import { flushPromises, mount } from '@vue/test-utils';
 import TrashView from '@/components/desktop/trash/TrashView.vue';
 import SettingsModal from '@/components/desktop/settings/SettingsModal.vue';
 import MainView from '@/components/desktop/layout/MainView.vue';
+import AsideMenu from '@/components/desktop/navigation/AsideMenu.vue';
 import { desktopExplorerContextKey } from '@/composables/useDesktopExplorerContext';
-import { loadTrashSettings, useTrash } from '@/composables/useTrash';
+import { loadTrashSettings, refreshTrashUsage, useTrash } from '@/composables/useTrash';
 import { setLocale } from '@/i18n';
 import * as trashApi from '@/services/trash';
 import type { TrashEntry } from '@/types/trash';
@@ -160,6 +161,13 @@ it('turns the trash on and off, sets its days and empties it from the settings',
   await flushPromises();
   await wrapper.get('[data-testid="settings_trash"]').setValue(false);
   await flushPromises();
+  expect(trashApi.saveTrashSettings).not.toHaveBeenCalled();
+  expect(wrapper.get('[data-testid="trash_empty_on_disable"]').element).toHaveProperty(
+    'checked',
+    false,
+  );
+  confirm().click();
+  await flushPromises();
   expect(trashApi.saveTrashSettings).toHaveBeenLastCalledWith({ enabled: false, days: 30 });
   const days = wrapper.get('[data-testid="settings_trash_days"]');
   await days.setValue('7');
@@ -188,4 +196,57 @@ it('turns the trash on and off, sets its days and empties it from the settings',
   await loadTrashSettings();
   expect(useTrash().loaded.value).toBe(false);
   wrapper.unmount();
+});
+
+it('offers to empty when disabling, updates its size and restores the days control on enabling', async () => {
+  vi.mocked(trashApi.readTrashSettings).mockResolvedValue({ enabled: true, days: 30 });
+  vi.mocked(trashApi.saveTrashSettings).mockImplementation(async (saved) => saved);
+  await loadTrashSettings();
+  const wrapper = mount(SettingsModal, { props: { open: true }, attachTo: document.body });
+  await flushPromises();
+  expect(wrapper.get('[data-testid="settings_trash_used"]').text()).toBe('Trash size: 4 KB');
+  await wrapper.get('[data-testid="settings_trash"]').setValue(false);
+  await wrapper.get('[data-testid="trash_empty_on_disable"]').setValue(true);
+  vi.mocked(trashApi.listTrashDisks).mockResolvedValue([]);
+  confirm().click();
+  await flushPromises();
+  expect(trashApi.emptyTrash).toHaveBeenCalledOnce();
+  expect(wrapper.get('[data-testid="settings_trash_used"]').text()).toBe('Trash size: 0 B');
+  expect(wrapper.get('[data-testid="settings_trash_days"]').attributes('disabled')).toBeDefined();
+  await wrapper.get('[data-testid="settings_trash"]').setValue(true);
+  await flushPromises();
+  expect(wrapper.get('[data-testid="settings_trash_days"]').attributes('disabled')).toBeUndefined();
+});
+
+it('keeps existing items operable while disabled and hides navigation only after emptying', async () => {
+  useTrash().settings.value = { enabled: false, days: 30 };
+  const wrapper = await view();
+  expect(wrapper.text()).toContain('expire 30 days');
+  const { context } = desktopContext();
+  const aside = mount(AsideMenu, {
+    props: {
+      folderNodes: [],
+      isCollapsed: false,
+      isOpen: false,
+      selectedFolderPath: '/',
+      activeNavigation: 'trash',
+    },
+    global: {
+      provide: { [desktopExplorerContextKey as symbol]: context },
+      stubs: { StorageUsage: true },
+    },
+  });
+  await flushPromises();
+  expect(aside.find('[data-testid="nav_trash"]').exists()).toBe(true);
+  await wrapper.get('[data-testid="trash_restore_v-a/docs"]').trigger('click');
+  await flushPromises();
+  expect(trashApi.restoreFromTrash).toHaveBeenCalledWith('v-a/docs', false);
+  await wrapper.get('[data-testid="trash_purge_v-a/docs"]').trigger('click');
+  confirm().click();
+  await flushPromises();
+  expect(trashApi.purgeFromTrash).toHaveBeenCalledWith('v-a/docs');
+  vi.mocked(trashApi.listTrashDisks).mockResolvedValue([]);
+  await refreshTrashUsage();
+  await flushPromises();
+  expect(aside.find('[data-testid="nav_trash"]').exists()).toBe(false);
 });

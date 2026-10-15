@@ -27,8 +27,7 @@ import formatSize from '@/utils/fileUtils';
  */
 const emit = defineEmits<{ restored: [] }>();
 const { locale, t } = useI18n();
-const { settings } = useTrash();
-const disks = ref<TrashDisk[]>([]);
+const { settings, disks, usageLoaded } = useTrash();
 // The entries of each opened folder, and of each disk, by their path.
 const children = ref<Record<string, TrashEntry[]>>({});
 const opened = ref<string[]>([]);
@@ -81,6 +80,7 @@ async function load() {
   loading.value = true;
   try {
     disks.value = await listTrashDisks();
+    usageLoaded.value = true;
     const listed = await Promise.all(disks.value.map((disk) => listTrash(disk.id)));
     const next: Record<string, TrashEntry[]> = {};
     disks.value.forEach((disk, index) => (next[disk.id] = listed[index] ?? []));
@@ -180,7 +180,9 @@ onMounted(load);
       <p class="trash_banner" data-testid="trash_note">
         <img class="icon_asset" :src="infoIcon" alt="" aria-hidden="true" />
         <span>{{
-          settings.enabled ? t.trashNote.replace('{days}', String(settings.days)) : t.trashOffNote
+          settings.enabled
+            ? t.trashNote.replace('{days}', String(settings.days))
+            : t.trashOffNote.replace('{days}', String(settings.days))
         }}</span>
       </p>
       <button

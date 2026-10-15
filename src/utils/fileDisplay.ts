@@ -1,7 +1,7 @@
 import type { FileEntry } from '@/types/files';
 
 export function isHiddenEntry(entry: Pick<FileEntry, 'name' | 'hidden'>) {
-  return entry.hidden ?? entry.name.startsWith('.');
+  return entry.hidden === true || entry.name.startsWith('.');
 }
 
 export function filterHiddenEntries(entries: FileEntry[], showHiddenFiles: boolean) {
@@ -9,7 +9,10 @@ export function filterHiddenEntries(entries: FileEntry[], showHiddenFiles: boole
     return entries;
   }
 
-  return entries.filter((entry) => !isHiddenEntry(entry));
+  return entries.filter(
+    (entry) =>
+      !isHiddenEntry(entry) && !entry.path.split('/').some((segment) => segment.startsWith('.')),
+  );
 }
 
 export function getDisplayFileName(

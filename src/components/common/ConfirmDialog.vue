@@ -34,6 +34,7 @@ const emit = defineEmits<{
     </div>
 
     <p class="confirm_dialog_message">{{ message }}</p>
+    <slot></slot>
 
     <div class="confirm_dialog_actions">
       <button class="button secondary" type="button" @click="emit('close')">

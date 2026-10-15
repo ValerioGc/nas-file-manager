@@ -7,6 +7,8 @@ import chevronRightIcon from '@/assets/icons/chevron-right.svg?url';
 import deleteIcon from '@/assets/icons/delete.svg?url';
 import moveIcon from '@/assets/icons/move.svg?url';
 import renameIcon from '@/assets/icons/rename.svg?url';
+import hiddenIcon from '@/assets/icons/hidden.svg?url';
+import visibleIcon from '@/assets/icons/visible.svg?url';
 import starFilledIcon from '@/assets/icons/star-filled.svg?url';
 import starIcon from '@/assets/icons/star.svg?url';
 import type { FileAction } from '@/composables/useFileOperations';
@@ -17,7 +19,7 @@ import type { FileEntry } from '@/types/files';
 import formatSize from '@/utils/fileUtils';
 import { useI18n } from '@/i18n';
 import { usePreferences } from '@/composables/usePreferences';
-import { getDisplayFileName } from '@/utils/fileDisplay';
+import { getDisplayFileName, isHiddenEntry } from '@/utils/fileDisplay';
 const { t } = useI18n();
 const { isFavorite } = useFavorites();
 const { preferences } = usePreferences();
@@ -79,7 +81,15 @@ const actionButtons = computed<{ type: PreviewAction; label: string; icon: strin
     { type: 'delete' as const, label: labels.delete, icon: deleteIcon },
   ];
   if (resolvedFiles.value.length === 1) {
-    buttons.push({ type: 'rename' as const, label: labels.rename, icon: renameIcon });
+    const hidden = isHiddenEntry(resolvedFiles.value[0]);
+    buttons.push(
+      { type: 'rename' as const, label: labels.rename, icon: renameIcon },
+      {
+        type: hidden ? 'show' : 'hide',
+        label: hidden ? labels.showFile : labels.hideFile,
+        icon: hidden ? visibleIcon : hiddenIcon,
+      },
+    );
   }
   if (resolvedFiles.value.length > 0) {
     const allFavorites = resolvedFiles.value.every((file) => isFavorite(file.path));

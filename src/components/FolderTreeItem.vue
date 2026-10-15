@@ -161,7 +161,7 @@ function handleDrop(event: DragEvent) {
 
     &:hover,
     &.selected {
-      background: var(--surface-soft);
+      background: var(--navigation-hover, var(--surface-soft));
     }
 
     &.selected .tree_item_button {
@@ -180,7 +180,7 @@ function handleDrop(event: DragEvent) {
       min-width: 0;
       flex: 1;
       gap: 8px;
-      padding: 7px 8px 7px 0;
+      padding: var(--tree-row-padding, 9px) 8px var(--tree-row-padding, 9px) 0;
       color: var(--muted);
       background: transparent;
       text-align: left;
@@ -204,7 +204,7 @@ function handleDrop(event: DragEvent) {
       flex: 0 0 22px;
       place-items: center;
       width: 22px;
-      height: 30px;
+      height: var(--tree-toggle-height, 34px);
       color: var(--muted);
       background: transparent;
       font-size: 18px;
@@ -226,6 +226,16 @@ function handleDrop(event: DragEvent) {
     @extend %reset_list;
     padding-left: 19px;
   }
+}
+
+.tree .tree_row.selected {
+  background: var(--navigation-selected, var(--surface-soft));
+  box-shadow: var(--navigation-marker, none);
+}
+
+.tree .tree_row:focus-within {
+  outline: var(--navigation-focus, none);
+  outline-offset: -2px;
 }
 
 </style>

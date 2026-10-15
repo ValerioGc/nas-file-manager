@@ -58,7 +58,7 @@ async fn the_limit_of_the_previews_is_chosen_kept_and_applied() {
     let (status, usage) = call(&previews, "GET", "").await;
     assert_eq!(status, StatusCode::OK);
     assert!(usage["usedBytes"].as_u64().unwrap() > 0);
-    assert_eq!(usage["limitBytes"], MAX_LIMIT);
+    assert_eq!(usage["limitBytes"], fs_core::DEFAULT_PREVIEW_CACHE_BYTES);
 
     for bytes in [MIN_LIMIT - 1, MAX_LIMIT + 1] {
         let body = format!(r#"{{"limitBytes":{bytes}}}"#);
@@ -78,6 +78,10 @@ async fn the_limit_of_the_previews_is_chosen_kept_and_applied() {
         .apply_saved_limit()
         .await;
     assert_eq!(restarted.preview_cache_limit(), MIN_LIMIT);
+    let body = format!(r#"{{"limitBytes":{MAX_LIMIT}}}"#);
+    assert_eq!(call(&previews, "PUT", &body).await.0, StatusCode::OK);
+    previews.apply_saved_limit().await;
+    assert_eq!(previews.filesystem.preview_cache_limit(), MAX_LIMIT);
 
     let (status, usage) = call(&previews, "DELETE", "").await;
     assert_eq!(status, StatusCode::OK);

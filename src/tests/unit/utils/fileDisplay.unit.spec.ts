@@ -24,6 +24,10 @@ describe('file display helpers', () => {
     ]);
     expect(filterHiddenEntries(entries, true)).toEqual(entries);
     expect(isHiddenEntry(entries[1])).toBe(true);
+    expect(isHiddenEntry({ name: '.hidden', hidden: false })).toBe(true);
+    const child = { ...entries[0]!, path: '/.private/visible.txt' };
+    expect(filterHiddenEntries([child], false)).toEqual([]);
+    expect(filterHiddenEntries([child], true)).toEqual([child]);
   });
 
   it('hides only the final extension while preserving folders and dotfiles', () => {

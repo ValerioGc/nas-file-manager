@@ -5,6 +5,8 @@ import englishFlag from '@/assets/icons/flag-en.svg?url';
 import italianFlag from '@/assets/icons/flag-it.svg?url';
 import moonIcon from '@/assets/icons/moon.svg?url';
 import closeIcon from '@/assets/icons/close.svg?url';
+import deleteIcon from '@/assets/icons/delete.svg?url';
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
 import sunIcon from '@/assets/icons/sun.svg?url';
 import BaseModal from '@/components/common/BaseModal.vue';
 import SettingsRow from '@/components/common/SettingsRow.vue';
@@ -20,7 +22,7 @@ import {
   type PreviewCacheUsage,
 } from '@/services/filesystem';
 import formatSize from '@/utils/fileUtils';
-import { useTrash } from '@/composables/useTrash';
+import { refreshTrashUsage, useTrash } from '@/composables/useTrash';
 import { emptyTrash } from '@/services/trash';
 
 const { preferences, setTheme, themeMode } = usePreferences();
@@ -33,11 +35,12 @@ const languageFlag = computed(() => {
 });
 
 const emit = defineEmits<{ close: [] }>();
-defineProps<{ open: boolean }>();
+const props = defineProps<{ open: boolean }>();
 
 const MB = 1024 * 1024;
-/** The room the previews may take on the NAS: from 100 MB to 2 GB. */
-const PREVIEW_LIMITS = [100, 250, 500, 1024, 1536, 2048].map((megabytes) => megabytes * MB);
+const PREVIEW_LIMITS = [10, 25, 50, 100, 250, 500, 1024, 1536, 2048, 4096, 8192, 16384].map(
+  (megabytes) => megabytes * MB,
+);
 const previewCache = ref<PreviewCacheUsage | null>(null);
 const previewCacheError = ref('');
 const previewCacheBusy = ref(false);
@@ -59,11 +62,50 @@ function changePreviewLimit(event: Event) {
   void updatePreviewCache(() => setPreviewCacheLimit(limitBytes));
 }
 
-const { settings: trash, loaded: trashLoaded, save: saveTrash } = useTrash();
+const {
+  settings: trash,
+  loaded: trashLoaded,
+  save: saveTrash,
+  items: trashItems,
+  bytes: trashBytes,
+  usageLoaded,
+} = useTrash();
 const trashError = ref('');
 const trashBusy = ref(false);
-// Emptying asks once more, on the same button.
+const confirmingDisable = ref(false);
+const emptyOnDisable = ref(false);
 const confirmingEmpty = ref(false);
+
+watch(
+  () => props.open,
+  (open) => {
+    confirmingEmpty.value = false;
+    confirmingDisable.value = false;
+    if (open) {
+      void refreshTrashUsage();
+    }
+  },
+  { immediate: true },
+);
+
+function toggleTrash(enabled: boolean) {
+  if (enabled) {
+    void changeTrash(() => saveTrash({ enabled: true }));
+    return;
+  }
+  emptyOnDisable.value = false;
+  confirmingDisable.value = true;
+}
+
+function disableTrash() {
+  confirmingDisable.value = false;
+  void changeTrash(async () => {
+    await saveTrash({ enabled: false });
+    if (emptyOnDisable.value) {
+      await emptyTrash();
+    }
+  });
+}
 
 async function changeTrash(change: () => Promise<unknown>) {
   trashBusy.value = true;
@@ -73,6 +115,7 @@ async function changeTrash(change: () => Promise<unknown>) {
   } catch {
     trashError.value = t.value.trashUnavailable;
   } finally {
+    await refreshTrashUsage();
     trashBusy.value = false;
   }
 }
@@ -210,7 +253,7 @@ function handleTabKeydown(event: KeyboardEvent, tabIndex: number) {
               :label="t.trashEnabled"
               :disabled="!trashLoaded || trashBusy"
               testid="settings_trash"
-              @update:model-value="(enabled) => changeTrash(() => saveTrash({ enabled }))"
+              @update:model-value="toggleTrash"
             />
           </SettingsRow>
           <SettingsRow class="preference_row" :description="t.trashDaysDescription">
@@ -222,7 +265,7 @@ function handleTabKeydown(event: KeyboardEvent, tabIndex: number) {
               :model-value="trash.days"
               :min="1"
               :max="3650"
-              :disabled="!trashLoaded || trashBusy"
+              :disabled="!trashLoaded || trashBusy || (!trash.enabled && trashItems === 0)"
               :increase-label="t.increase"
               :decrease-label="t.decrease"
               testid="settings_trash_days"
@@ -231,16 +274,21 @@ function handleTabKeydown(event: KeyboardEvent, tabIndex: number) {
           </SettingsRow>
           <SettingsRow class="preference_row" :description="trashError">
             <template #title>
-              <span class="settings_row_label">{{ t.trashEmpty }}</span>
+              <span data-testid="settings_trash_used">{{
+                usageLoaded
+                  ? t.trashUsed.replace('{size}', formatSize(trashBytes))
+                  : t.previewCacheReading
+              }}</span>
             </template>
             <button
               class="button secondary"
               type="button"
-              :disabled="!trashLoaded || trashBusy"
+              :disabled="!trashLoaded || trashBusy || !usageLoaded || trashItems === 0"
               data-testid="settings_trash_empty"
               @click="emptyTheTrash"
             >
-              {{ confirmingEmpty ? t.trashEmptyConfirm : t.trashEmpty }}
+              <img class="icon_asset" :src="deleteIcon" alt="" aria-hidden="true" />
+              {{ confirmingEmpty ? t.trashEmptyConfirm : t.previewCacheEmpty }}
             </button>
           </SettingsRow>
         </SettingsSection>
@@ -297,7 +345,7 @@ function handleTabKeydown(event: KeyboardEvent, tabIndex: number) {
           </SettingsRow>
           <SettingsRow class="preference_row" :description="previewCacheError">
             <template #title>
-              <span class="settings_row_label" data-testid="settings_preview_cache_used">{{
+              <span data-testid="settings_preview_cache_used">{{
                 previewCache
                   ? t.previewCacheUsed.replace('{size}', formatSize(previewCache.usedBytes))
                   : t.previewCacheReading
@@ -310,6 +358,7 @@ function handleTabKeydown(event: KeyboardEvent, tabIndex: number) {
               data-testid="settings_preview_cache_empty"
               @click="updatePreviewCache(emptyPreviewCache)"
             >
+              <img class="icon_asset" :src="deleteIcon" alt="" aria-hidden="true" />
               {{ t.previewCacheEmpty }}
             </button>
           </SettingsRow>
@@ -463,6 +512,20 @@ function handleTabKeydown(event: KeyboardEvent, tabIndex: number) {
       </div>
     </div>
   </BaseModal>
+  <ConfirmDialog
+    :open="confirmingDisable"
+    :title="t.trashDisableTitle"
+    :message="t.trashDisableMessage.replace('{days}', String(trash.days))"
+    :confirm-label="t.trashDisable"
+    :cancel-label="t.cancel"
+    @close="confirmingDisable = false"
+    @confirm="disableTrash"
+  >
+    <label class="empty_on_disable">
+      <input v-model="emptyOnDisable" type="checkbox" data-testid="trash_empty_on_disable" />
+      <span>{{ t.trashEmptyAlso }}</span>
+    </label>
+  </ConfirmDialog>
 </template>
 
 <style scoped lang="scss">
@@ -616,6 +679,43 @@ h2 {
 .preference_row {
   padding: 11px 0;
   border-bottom: 1px solid var(--border);
+}
+
+.preview_cache_limit {
+  position: relative;
+  z-index: 1;
+  min-width: 120px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  background: var(--surface-soft);
+  font: inherit;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.empty_on_disable {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+
+  input {
+    width: 18px;
+    height: 18px;
+    flex: none;
+  }
 }
 
 // The title of the row names the switch: its own label is there for the screen readers.

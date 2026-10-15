@@ -136,6 +136,41 @@ async fn the_page_lists_restores_deletes_and_empties_the_trash() {
 }
 
 #[tokio::test]
+async fn disabling_keeps_old_items_recoverable_and_expires_them_at_the_original_deadline() {
+    let (root, trash) = trash().await;
+    fs::write(root.join("docs/b.txt"), "b").unwrap();
+    trash.filesystem.delete("docs/a.txt").unwrap();
+    trash.deleted("docs/a.txt").await;
+    trash.filesystem.delete("docs/b.txt").unwrap();
+    trash.deleted("docs/b.txt").await;
+    let (status, _) = call(
+        &trash,
+        "PUT",
+        "/api/trash/settings",
+        r#"{"enabled":false,"days":30}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, listed) = call(&trash, "GET", "/api/trash?path=docs", "").await;
+    assert_eq!(listed.as_array().unwrap().len(), 2);
+    let (status, _) = call(
+        &trash,
+        "POST",
+        "/api/trash/restore",
+        r#"{"path":"docs/a.txt"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(fs::read_to_string(root.join("docs/a.txt")).unwrap(), "x");
+    trash.filesystem.delete("docs/a.txt").unwrap();
+    assert!(!root.join(".nas-trash/docs/a.txt").exists());
+    assert_eq!(trash.expire(now() + 29 * DAY).await, 0);
+    assert_eq!(trash.expire(now() + 31 * DAY).await, 1);
+    assert!(!root.join(".nas-trash/docs/b.txt").exists());
+    fs::remove_dir_all(root.parent().unwrap()).unwrap();
+}
+
+#[tokio::test]
 async fn what_stayed_longer_than_its_days_leaves_the_trash() {
     let (root, trash) = trash().await;
     trash.filesystem.delete("docs/a.txt").unwrap();

@@ -1,6 +1,9 @@
 import { ref } from 'vue';
 import { useI18n } from '@/i18n';
-import { useTrash } from '@/composables/useTrash';
+import { useFavorites } from '@/composables/useFavorites';
+import { validateFileName } from '@/utils/fileNameValidation';
+import { isHiddenEntry } from '@/utils/fileDisplay';
+import { refreshTrashUsage, useTrash } from '@/composables/useTrash';
 import {
   copyEntry,
   clearPreviewCache,
@@ -17,7 +20,7 @@ import type { FileEntry } from '@/types/files';
 import type { ConflictDecision, FileConflict } from '@/types/conflicts';
 import type { ConfirmationRequest } from '@/types/confirmation';
 
-export type FileAction = 'copy' | 'delete' | 'download' | 'move' | 'rename';
+export type FileAction = 'copy' | 'delete' | 'download' | 'move' | 'rename' | 'hide' | 'show';
 export type TransferKind = 'copy' | 'download' | 'move' | 'upload';
 export type TransferState = { kind: TransferKind; label: string; progress: number };
 export type ConflictResolver = (conflicts: FileConflict[]) => Promise<ConflictDecision[]>;
@@ -33,12 +36,40 @@ export function useFileOperations(onCompleted?: () => void | Promise<void>) {
   const isMutating = ref(false);
   const transfer = ref<TransferState | null>(null);
 
-  /** Deletes or downloads one entry; copy, move and rename go through the windows of the app. */
+  async function setHidden(file: FileEntry, hidden: boolean) {
+    if (isHiddenEntry(file) === hidden) {
+      return null;
+    }
+    const name = hidden ? `.${file.name}` : file.name.replace(/^\.+/, '');
+    const invalid = validateFileName(name);
+    if (invalid) {
+      throw new Error(t.value[invalid]);
+    }
+    await execute(async () => {
+      const renamed = await renameEntry(file.path, name);
+      const { favorites } = useFavorites();
+      favorites.value = favorites.value.map((entry) => {
+        if (entry.path === file.path) {
+          return renamed;
+        }
+        if (!entry.path.startsWith(`${file.path}/`)) {
+          return entry;
+        }
+        return { ...entry, path: renamed.path + entry.path.slice(file.path.length) };
+      });
+    });
+    return format(hidden ? t.value.fileHidden : t.value.fileShown, name);
+  }
+
+  /** Esegue le azioni dirette; copia, sposta e rinomina usano le rispettive finestre. */
   async function perform(
-    action: 'delete' | 'download',
+    action: 'delete' | 'download' | 'hide' | 'show',
     file: FileEntry,
     confirmOperation?: ConfirmationResolver,
   ): Promise<string | null> {
+    if (action === 'hide' || action === 'show') {
+      return setHidden(file, action === 'hide');
+    }
     if (action === 'delete') {
       const confirmed = await askConfirmation(
         {
@@ -56,6 +87,7 @@ export function useFileOperations(onCompleted?: () => void | Promise<void>) {
         return null;
       }
       await execute(() => deleteEntry(file.path));
+      await refreshTrashUsage();
       return format(trash.value.enabled ? t.value.trashed : t.value.deleted, file.name);
     }
 
@@ -68,7 +100,7 @@ export function useFileOperations(onCompleted?: () => void | Promise<void>) {
 
   /** Deletes or downloads several entries. */
   async function performMany(
-    action: 'delete' | 'download',
+    action: 'delete' | 'download' | 'hide' | 'show',
     files: FileEntry[],
     confirmOperation?: ConfirmationResolver,
   ): Promise<string | null> {
@@ -98,6 +130,7 @@ export function useFileOperations(onCompleted?: () => void | Promise<void>) {
         return null;
       }
       await execute(() => Promise.all(files.map((file) => deleteEntry(file.path))));
+      await refreshTrashUsage();
       return format(
         trash.value.enabled ? t.value.trashedMany : t.value.deletedMany,
         String(files.length),
@@ -106,7 +139,7 @@ export function useFileOperations(onCompleted?: () => void | Promise<void>) {
     }
 
     for (const file of files) {
-      await perform('download', file, confirmOperation);
+      await perform(action, file, confirmOperation);
     }
     return null;
   }

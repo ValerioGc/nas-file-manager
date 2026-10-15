@@ -14,12 +14,15 @@ import type { FileEntry } from '@/types/files';
 
 import FileBrowser from './FileBrowser.vue';
 
-const { fileActions, files, isListLoading, isNarrowDesktop, viewMode } =
+const { fileActions, files, isComputerRoot, isListLoading, isNarrowDesktop, viewMode } =
   useDesktopExplorerContext();
 const { preferences } = usePreferences();
 // The details panel, as the settings want it for this view: without it there is none to show.
 const details = computed(
-  () => files.value.length > 0 && showsDetails(preferences.value, viewMode.value),
+  () =>
+    !isComputerRoot.value &&
+    files.value.length > 0 &&
+    showsDetails(preferences.value, viewMode.value),
 );
 
 const { t } = useI18n();

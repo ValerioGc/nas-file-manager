@@ -179,8 +179,7 @@ it('renders loading, empty and grouped NAS volumes', async () => {
   await flushPromises();
   expect(wrapper.findAll('.drive_group')).toHaveLength(3);
   const drive = wrapper.get('.computer_drive_card');
-  await drive.trigger('click');
-  await drive.trigger('dblclick');
+  await drive.get('.drive_open').trigger('click');
   await drive.trigger('contextmenu');
   const transfer = dataTransfer();
   await drive.trigger('dragstart', { dataTransfer: transfer });
@@ -189,6 +188,13 @@ it('renders loading, empty and grouped NAS volumes', async () => {
   await drive.trigger('drop', { dataTransfer: transfer });
   await drive.trigger('dragend');
   expect(context.navigate).toHaveBeenCalledWith('/device', 'docs');
+  const icons = wrapper.findAll('.computer_drive_icon img').map((icon) => icon.attributes('src'));
+  expect(new Set(icons).size).toBe(3);
+  expect(wrapper.findAll('.computer_drive_card > button[title="Open drive"]')).toHaveLength(3);
+  expect(wrapper.getComponent(ContextMenu).props('drive')).toBe(true);
+  context.viewMode.value = 'grid';
+  await flushPromises();
+  expect(wrapper.findAll('.computer_drive_card > button[title="Open drive"]')).toHaveLength(0);
 });
 
 it('opens details, applies selection actions and uses a modal on narrow screens', async () => {
@@ -288,6 +294,11 @@ it('hides the details panel where the settings say so, and then opens a folder o
     },
   });
   expect(view.find('.details_panel').exists()).toBe(true);
+  state.root.value = true;
+  await flushPromises();
+  expect(view.find('.details_panel').exists()).toBe(false);
+  expect(view.getComponent(BaseModal).props('open')).toBe(false);
+  state.root.value = false;
 
   // Off in the list view only: the grid keeps it.
   preferences.value = { ...preferences.value, detailsInList: false };

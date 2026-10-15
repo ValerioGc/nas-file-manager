@@ -14,9 +14,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
 
-/// The limits the settings offer: from 100 MB to 2 GB.
-pub const MIN_LIMIT: u64 = 100 * 1024 * 1024;
-pub const MAX_LIMIT: u64 = fs_core::DEFAULT_PREVIEW_CACHE_BYTES;
+/// Limiti configurabili per la cache delle miniature.
+pub const MIN_LIMIT: u64 = 10 * 1024 * 1024;
+pub const MAX_LIMIT: u64 = 16 * 1024 * 1024 * 1024;
 
 #[derive(Clone)]
 pub struct Previews {
@@ -54,7 +54,7 @@ impl Previews {
                 .await;
         if let Ok(Some(bytes)) = saved {
             let bytes = u64::try_from(bytes)
-                .unwrap_or(MAX_LIMIT)
+                .unwrap_or(fs_core::DEFAULT_PREVIEW_CACHE_BYTES)
                 .clamp(MIN_LIMIT, MAX_LIMIT);
             self.filesystem.set_preview_cache_limit(bytes);
         }
@@ -93,12 +93,12 @@ async fn usage(State(previews): State<Previews>) -> Response {
     }
 }
 
-/// Saves the room the previews may take, from 100 MB to 2 GB, and prunes them to it at once.
+/// Salva il limite e rimuove subito le miniature in eccesso.
 async fn limit(State(previews): State<Previews>, Json(request): Json<Limit>) -> Response {
     if !(MIN_LIMIT..=MAX_LIMIT).contains(&request.limit_bytes) {
         return refused(
             StatusCode::BAD_REQUEST,
-            "the limit goes from 100 MB to 2 GB",
+            "the limit goes from 10 MB to 16 GB",
         );
     }
     let saved = sqlx::query(

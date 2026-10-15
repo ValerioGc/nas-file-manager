@@ -7,6 +7,41 @@
 @use '@valeriogc/nas-base-app/styles/_nas-scrollbar.scss';
 @use '@valeriogc/nas-base-app/styles/_nas-switch.scss';
 @use '@valeriogc/nas-base-app/styles/_nas-number-stepper.scss';
+
+.app_shell.compact_list {
+  --tree-row-padding: 3px;
+  --tree-toggle-height: 26px;
+  --drive-card-height: 76px;
+  --drive-card-padding: 12px;
+  --drive-list-height: 60px;
+  --drive-list-padding: 8px 12px;
+
+  .file_row {
+    padding-block: 6px;
+  }
+  .file_grid {
+    gap: 8px;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+  .file_card {
+    padding: 10px;
+    gap: 5px;
+  }
+  .file_card_thumbnail {
+    height: 84px;
+  }
+  .drive_grid {
+    gap: 8px;
+  }
+}
+
+.app_shell.colored_navigation {
+  --navigation-hover: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  --navigation-selected: color-mix(in srgb, var(--accent) 20%, var(--surface));
+  --navigation-marker: inset 3px 0 0 var(--accent);
+  --navigation-focus: 2px solid var(--accent);
+}
+
 .visually_hidden {
   position: absolute;
   width: 1px;

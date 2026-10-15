@@ -184,7 +184,6 @@ it('lists the shared folders after the favorites', async () => {
     'All files',
     'Favorites',
     'Shared',
-    'Trash',
   ]);
   expect(aside.get('[data-testid="nav_shared"]').classes()).toContain('active');
   await aside.get('[data-testid="nav_shared"]').trigger('click');

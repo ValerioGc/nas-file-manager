@@ -6,6 +6,7 @@ import type { VolumeInfo } from '@/types/storage';
 
 export type Breadcrumb = { label: string; path: string };
 export type DesktopContextAction =
+  | 'open-drive'
   | FileAction
   | 'copy-to-clipboard'
   | 'cut-to-clipboard'

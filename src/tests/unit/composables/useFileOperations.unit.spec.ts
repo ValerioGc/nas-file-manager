@@ -15,6 +15,7 @@ const api = vi.hoisted(() => ({
 vi.mock('@/services/filesystem', () => api);
 
 import { useTrash } from '@/composables/useTrash';
+import { useFavorites } from '@/composables/useFavorites';
 import { useFileOperations } from '@/composables/useFileOperations';
 import type { FileEntry } from '@/types/files';
 
@@ -102,6 +103,27 @@ describe('useFileOperations', () => {
       expect.objectContaining({ confirmLabel: 'Delete' }),
     );
     useTrash().settings.value = { enabled: true, days: 30 };
+  });
+
+  it('hides and unhides through rename, keeps favorites and leaves them untouched on conflict', async () => {
+    const { favorites } = useFavorites();
+    favorites.value = [file, { ...file, path: '/other.txt' }];
+    const hidden = { ...file, name: '.draft.txt', path: '/.draft.txt', hidden: true };
+    api.renameEntry.mockResolvedValueOnce(hidden);
+    const completed = vi.fn();
+    const { perform } = useFileOperations(completed);
+    await expect(perform('hide', file)).resolves.toContain('Item hidden');
+    expect(api.renameEntry).toHaveBeenLastCalledWith('/draft.txt', '.draft.txt');
+    expect(favorites.value).toEqual([hidden, { ...file, path: '/other.txt' }]);
+    await expect(perform('hide', hidden)).resolves.toBeNull();
+    api.renameEntry.mockRejectedValueOnce(new Error('destination already exists'));
+    await expect(perform('show', hidden)).rejects.toThrow('destination already exists');
+    expect(favorites.value[0]).toEqual(hidden);
+    api.renameEntry.mockResolvedValueOnce({ ...file, hidden: false });
+    await expect(perform('show', hidden)).resolves.toContain('Item visible');
+    expect(api.renameEntry).toHaveBeenLastCalledWith('/.draft.txt', 'draft.txt');
+    expect(completed).toHaveBeenCalledTimes(2);
+    favorites.value = [];
   });
 
   it('creates a new empty file with the provided extension', async () => {

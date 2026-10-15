@@ -70,6 +70,7 @@ it('shows empty, single and multiple selections and emits preview actions', asyn
     ['move'],
     ['delete'],
     ['rename'],
+    ['hide'],
     ['favorite'],
   ]);
   await wrapper.get('.preview_close').trigger('click');
@@ -195,12 +196,18 @@ it('shows the room of the previews, changes its limit and empties it', async () 
   );
   const limit = wrapper.get('[data-testid="settings_preview_cache_limit"]');
   expect(limit.findAll('option').map((option) => option.text())).toEqual([
+    '10 MB',
+    '25 MB',
+    '50 MB',
     '100 MB',
     '250 MB',
     '500 MB',
     '1 GB',
     '1.5 GB',
     '2 GB',
+    '4 GB',
+    '8 GB',
+    '16 GB',
   ]);
   vi.mocked(setPreviewCacheLimit).mockResolvedValueOnce({
     usedBytes: 1024 * 1024,
