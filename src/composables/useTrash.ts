@@ -15,7 +15,7 @@ export async function refreshTrashUsage() {
     disks.value = await listTrashDisks();
     usageLoaded.value = true;
   } catch {
-    // Un errore temporaneo non deve nascondere i file già rilevati.
+    // A transient error must not hide the files already found.
     usageLoaded.value = false;
   }
 }

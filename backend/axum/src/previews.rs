@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
 
-/// Limiti configurabili per la cache delle miniature.
+/// Configurable limits of the thumbnail cache.
 pub const MIN_LIMIT: u64 = 10 * 1024 * 1024;
 pub const MAX_LIMIT: u64 = 16 * 1024 * 1024 * 1024;
 
@@ -93,7 +93,7 @@ async fn usage(State(previews): State<Previews>) -> Response {
     }
 }
 
-/// Salva il limite e rimuove subito le miniature in eccesso.
+/// Saves the limit and removes the thumbnails over it at once.
 async fn limit(State(previews): State<Previews>, Json(request): Json<Limit>) -> Response {
     if !(MIN_LIMIT..=MAX_LIMIT).contains(&request.limit_bytes) {
         return refused(

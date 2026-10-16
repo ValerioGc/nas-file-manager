@@ -156,18 +156,7 @@ function getValidationMessage(key: FileNameValidationError) {
 }
 
 .file_name_modal_input {
-  width: 100%;
-  min-height: 40px;
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  color: var(--text);
-  background: var(--surface-soft);
-  outline: 0;
-
-  &:focus {
-    border-color: var(--accent);
-  }
+  @extend %text_field;
 }
 
 .file_name_modal_hint {

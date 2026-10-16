@@ -61,7 +61,7 @@ export function useFileOperations(onCompleted?: () => void | Promise<void>) {
     return format(hidden ? t.value.fileHidden : t.value.fileShown, name);
   }
 
-  /** Esegue le azioni dirette; copia, sposta e rinomina usano le rispettive finestre. */
+  /** Runs the direct actions; copy, move and rename go through their dialogs. */
   async function perform(
     action: 'delete' | 'download' | 'hide' | 'show',
     file: FileEntry,

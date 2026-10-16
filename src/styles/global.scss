@@ -1,2 +1,18 @@
 // The breakpoint of this application is the one of its tokens (680px), not the shared one.
 @forward '@valeriogc/nas-base-app/styles/global.scss' hide $mobile_breakpoint;
+
+// The text field of the dialogs.
+%text_field {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  background: var(--surface-soft);
+  outline: 0;
+
+  &:focus {
+    border-color: var(--accent);
+  }
+}
