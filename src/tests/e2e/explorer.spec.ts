@@ -303,11 +303,13 @@ test('keeps a favorite on the backend, for every browser that opens the Explorer
   await page.goto('/?path=%2FDocuments');
   const row = page.locator('.file_row').filter({ hasText: 'report.txt' });
   await row.hover();
-  const saved = page.waitForRequest(
-    (request) => request.method() === 'PUT' && request.url().endsWith('/api/documents/favorites'),
+  // The answer, not the request: the backend has written the document once it has answered.
+  const saved = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'PUT' && response.url().endsWith('/api/documents/favorites'),
   );
   await row.getByTitle('Add to favorites').click();
-  await saved;
+  expect((await saved).ok()).toBe(true);
   const stored = await page.request.get('/api/documents/favorites');
   expect(await stored.json()).toEqual([expect.objectContaining({ name: 'report.txt' })]);
 
@@ -317,11 +319,12 @@ test('keeps a favorite on the backend, for every browser that opens the Explorer
   const favorite = other.locator('.file_row').filter({ hasText: 'report.txt' });
   await expect(favorite).toBeVisible();
   await favorite.hover();
-  const removed = other.waitForRequest(
-    (request) => request.method() === 'PUT' && request.url().endsWith('/api/documents/favorites'),
+  const removed = other.waitForResponse(
+    (response) =>
+      response.request().method() === 'PUT' && response.url().endsWith('/api/documents/favorites'),
   );
   await favorite.getByTitle('Remove from favorites').click();
-  await removed;
+  expect((await removed).ok()).toBe(true);
   await other.close();
   expect(await (await page.request.get('/api/documents/favorites')).json()).toEqual([]);
 });
