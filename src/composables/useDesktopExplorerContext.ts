@@ -18,6 +18,10 @@ export type DesktopNavigation = 'all-files' | 'favorites' | 'shared' | 'trash';
 
 export interface DesktopExplorerContext {
   breadcrumbs: ComputedRef<Breadcrumb[]>;
+  /** A place was shown before this one in the window. */
+  canGoBack: ComputedRef<boolean>;
+  /** The files are inside a folder, which has one above it. */
+  canGoUp: ComputedRef<boolean>;
   canMutateCurrentPath: ComputedRef<boolean>;
   files: ComputedRef<FileEntry[]>;
   isListLoading: ComputedRef<boolean>;
@@ -41,6 +45,12 @@ export interface DesktopExplorerContext {
   fileAction: (action: FileAction, file: FileEntry) => void | Promise<void>;
   fileActions: (action: FileAction, files: FileEntry[]) => void | Promise<void>;
   navigate: (path: string, name?: string) => void;
+  /** Back to the place shown before. */
+  goBack: () => void | Promise<void>;
+  /** To the top of the files, where the drives are. */
+  goHome: () => void;
+  /** To the folder that holds the current one. */
+  goUp: () => void;
   openArchive: (file: FileEntry) => void | Promise<void>;
   selectNavigation: (navigation: DesktopNavigation) => void | Promise<void>;
   openSettings: () => void;

@@ -170,6 +170,7 @@ export const it = {
   chooseFolder: 'Seleziona',
   selectedFolders: '{count} cartelle',
   fileActions: 'Azioni file',
+  parentFolder: 'Cartella superiore',
   back: 'Indietro',
   listView: 'Vista elenco',
   gridView: 'Vista griglia',

@@ -2,6 +2,18 @@
 
 All notable changes to nas-file-manager are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Back, parent folder and home buttons before the path: back returns to the place shown before in
+  the window, up to 50 steps.
+
+### Changed
+
+- The path sits in one bar with the buttons, with arrows between the folders, the current one
+  marked, and long names cut with their full name on hover.
+
 ## [0.1.24]
 
 ### Changed

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
 import ConflictDialog from '@/components/common/ConflictDialog.vue';
 import ArchiveDialog from '@/components/common/ArchiveDialog.vue';
@@ -164,6 +164,31 @@ const isComputerRoot = computed(
 const searchSummary = computed(() =>
   search.value ? t.value.globalResults.replace('{count}', String(visibleFiles.value.length)) : '',
 );
+/** A place shown before, for the back button: the list and, for the files, the folder. */
+interface Visit {
+  navigation: DesktopNavigation;
+  path: string;
+  name: string;
+}
+const VISITS_KEPT = 50;
+const visited = ref<Visit[]>([]);
+let here: Visit = {
+  navigation: activeNavigation.value,
+  path: selectedFolderPath.value,
+  name: selectedFolderName.value,
+};
+let returning = false;
+
+watch([activeNavigation, selectedFolderPath], ([navigation, path]) => {
+  if (!returning) {
+    visited.value = [...visited.value, here].slice(-VISITS_KEPT);
+  }
+  here = { navigation, path, name: selectedFolderName.value };
+});
+
+const canGoUp = computed(
+  () => activeNavigation.value === 'all-files' && selectedFolderPath.value !== '/',
+);
 const breadcrumbs = computed(() => {
   if (activeNavigation.value !== 'all-files') {
     return [{ label: navigationName(activeNavigation.value), path: '/' }];
@@ -218,6 +243,8 @@ const {
 
 provideDesktopExplorerContext({
   breadcrumbs,
+  canGoBack: computed(() => visited.value.length > 0),
+  canGoUp,
   canMutateCurrentPath,
   files: visibleFiles,
   isListLoading,
@@ -240,6 +267,9 @@ provideDesktopExplorerContext({
   fileAction: handleFileAction,
   fileActions: handleFilesAction,
   navigate: navigateTo,
+  goBack,
+  goHome: () => navigateTo('/'),
+  goUp,
   openArchive,
   selectNavigation,
   openSettings: () => (isSettingsOpen.value = true),
@@ -447,6 +477,28 @@ function navigateTo(path: string, name?: string) {
     segment ??
     nasRootName.value;
   void load(path);
+}
+
+async function goBack() {
+  const previous = visited.value.at(-1);
+  if (!previous) {
+    return;
+  }
+  visited.value = visited.value.slice(0, -1);
+  returning = true;
+  if (previous.navigation === 'all-files') {
+    navigateTo(previous.path, previous.name);
+  } else {
+    selectNavigation(previous.navigation);
+  }
+  await nextTick();
+  returning = false;
+}
+
+function goUp() {
+  if (canGoUp.value) {
+    navigateTo(selectedFolderPath.value.replace(/\/[^/]+$/, '') || '/');
+  }
 }
 
 // The folder the files were left at for the favorites or the shared folders: going back to all

@@ -168,6 +168,7 @@ export const en = {
   chooseFolder: 'Select',
   selectedFolders: '{count} folders',
   fileActions: 'File actions',
+  parentFolder: 'Parent folder',
   back: 'Back',
   listView: 'List view',
   gridView: 'Grid view',

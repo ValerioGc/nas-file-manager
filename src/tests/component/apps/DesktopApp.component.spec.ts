@@ -136,6 +136,49 @@ it('loads grouped volumes, navigates, searches, filters and updates localized la
   expect(state.filesystem.load).toHaveBeenCalled();
 });
 
+it('goes back through the places shown, up to the folder above and home to the drives', async () => {
+  vi.mocked(listVolumes).mockResolvedValue([{ id: 'docs', name: 'Documents', kind: 'device' }]);
+  desktop();
+  await flushPromises();
+  expect(context.canGoBack.value).toBe(false);
+  expect(context.canGoUp.value).toBe(false);
+
+  context.navigate('/docs');
+  await flushPromises();
+  context.navigate('/docs/reports/2026');
+  await flushPromises();
+  context.selectNavigation('favorites');
+  await flushPromises();
+  expect(context.canGoUp.value).toBe(false);
+
+  await context.goBack();
+  expect(context.activeNavigation.value).toBe('all-files');
+  expect(context.selectedFolderName.value).toBe('2026');
+  context.goUp();
+  await flushPromises();
+  expect(context.breadcrumbs.value.at(-1)?.path).toBe('/docs/reports');
+  await context.goBack();
+  expect(context.breadcrumbs.value.at(-1)?.path).toBe('/docs/reports/2026');
+  await context.goBack();
+  expect(context.selectedFolderName.value).toBe('Documents');
+  context.goUp();
+  await flushPromises();
+  expect(context.isComputerRoot.value).toBe(true);
+  context.goUp();
+  expect(context.isComputerRoot.value).toBe(true);
+
+  context.navigate('/docs');
+  await flushPromises();
+  context.goHome();
+  await flushPromises();
+  expect(context.isComputerRoot.value).toBe(true);
+  while (context.canGoBack.value) {
+    await context.goBack();
+  }
+  await context.goBack();
+  expect(context.isComputerRoot.value).toBe(true);
+});
+
 it('handles sidebar, settings, keyboard and notices', async () => {
   const queries: ReturnType<typeof window.matchMedia>[] = [];
   // matchMedia is already a mock from browserSetup: wrap its implementation, not the mock itself.
