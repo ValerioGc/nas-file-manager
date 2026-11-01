@@ -1,0 +1,45 @@
+import type { ComputedRef, Ref } from 'vue';
+import type { FileAction } from '@/types/actions';
+import type { FileEntry, FileSort } from '@/types/files';
+import type { Breadcrumb, DesktopNavigation } from '@/types/navigation';
+import type { VolumeInfo } from '@/types/storage';
+
+export interface DesktopExplorerContext {
+  breadcrumbs: ComputedRef<Breadcrumb[]>;
+  canGoBack: ComputedRef<boolean>;
+  canGoUp: ComputedRef<boolean>;
+  canMutateCurrentPath: ComputedRef<boolean>;
+  files: ComputedRef<FileEntry[]>;
+  isListLoading: ComputedRef<boolean>;
+  isComputerRoot: ComputedRef<boolean>;
+  isMutating: Ref<boolean>;
+  isNarrowDesktop: Ref<boolean>;
+  isMobileSidebar: Ref<boolean>;
+  isSidebarCollapsed: Ref<boolean>;
+  search: Ref<string>;
+  searchSummary: ComputedRef<string>;
+  selectedFolderName: Ref<string>;
+  sortBy: Ref<FileSort>;
+  viewMode: Ref<'grid' | 'list'>;
+  volumes: Ref<VolumeInfo[]>;
+  createFolder: () => void | Promise<void>;
+  createFile: () => void | Promise<void>;
+  copyToClipboard: (files: FileEntry[]) => void;
+  cutToClipboard: (files: FileEntry[]) => void;
+  activeNavigation: Ref<DesktopNavigation>;
+  fileAction: (action: FileAction, file: FileEntry) => void | Promise<void>;
+  fileActions: (action: FileAction, files: FileEntry[]) => void | Promise<void>;
+  navigate: (path: string, name?: string) => void;
+  goBack: () => void | Promise<void>;
+  goHome: () => void;
+  goUp: () => void;
+  openArchive: (file: FileEntry) => void | Promise<void>;
+  selectNavigation: (navigation: DesktopNavigation) => void | Promise<void>;
+  openSettings: () => void;
+  refreshFolders: () => void | Promise<void>;
+  openSidebar: () => void;
+  pasteClipboard: () => void | Promise<void>;
+  moveFilesToDestination: (files: FileEntry[], destination: string) => void | Promise<void>;
+  requestMove: (files: FileEntry[]) => void;
+  upload: (files: FileList) => void | Promise<void>;
+}
