@@ -1,11 +1,12 @@
-mod launcher_only;
 use std::error::Error;
-#[cfg(unix)]
-use std::os::unix::fs::FileTypeExt;
 use std::{env, fs, path::PathBuf};
 
 use nas_file_manager::filesystem::{Filesystem, NasVolume, StorageKind};
 use tower_http::services::ServeDir;
+
+async fn prepare_socket(path: &str) -> Result<(), Box<dyn Error>> {
+    Ok(nas_app_core::prepare_socket(std::path::Path::new(path)).await?)
+}
 
 async fn prevent_stale_page(
     request: axum::http::Request<axum::body::Body>,
@@ -85,21 +86,6 @@ fn volumes(content: &str) -> Result<Vec<NasVolume>, Box<dyn Error>> {
 }
 
 #[cfg(unix)]
-async fn prepare_socket(path: &str) -> Result<(), Box<dyn Error>> {
-    if let Ok(metadata) = tokio::fs::symlink_metadata(path).await {
-        if !metadata.file_type().is_socket() {
-            return Err(format!("Socket path is occupied: {path}").into());
-        }
-        match tokio::net::UnixStream::connect(path).await {
-            Ok(_) => return Err(format!("Socket is already listening: {path}").into()),
-            Err(error) if error.kind() == std::io::ErrorKind::ConnectionRefused => {}
-            Err(error) => return Err(format!("Unable to check socket: {error}").into()),
-        }
-        tokio::fs::remove_file(path).await?;
-    }
-    Ok(())
-}
-
 /// Socket to serve on, from `--listen` or the launcher configuration, or `None` with `--tcp` for
 /// standalone development.
 fn listen_socket(
@@ -149,7 +135,7 @@ async fn serve_socket(
     let listener = tokio::net::UnixListener::bind(socket_path)?;
     println!("FS Explorer listening on {socket_path}");
     axum::serve(
-        launcher_only::LauncherOnly::new(listener),
+        nas_app_core::LauncherOnly::new(listener),
         app.fallback_service(ServeDir::new(dist))
             .layer(axum::middleware::from_fn(prevent_stale_page)),
     )

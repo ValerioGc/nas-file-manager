@@ -13,7 +13,7 @@ export const en = {
   trashDisableMessage:
     'New deletions will be permanent. Existing items remain recoverable until {days} days after their deletion.',
   trashDisable: 'Disable',
-  trashEmptyAlso: 'Also empty the trash: permanently delete existing items',
+  trashEmptyAlso: 'Also empty the trash and permanently delete existing items',
   hideFile: 'Hide',
   showFile: 'Unhide',
   fileHidden: 'Item hidden ({name})',
@@ -24,7 +24,7 @@ export const en = {
   confirmTrashManyMessage: 'Move the {count} selected items to the trash?',
   trashNote: 'Items stay here {days} days, then they are deleted.',
   trashOffNote:
-    'Trash off: new deletions are permanent. Existing items can still be restored or deleted and expire {days} days after their deletion.',
+    'Trash off. New deletions are permanent. Existing items can still be restored or deleted and expire {days} days after their deletion.',
   trashReading: 'Reading the trash',
   trashNothing: 'The trash is empty',
   trashUnavailable: 'The trash is not available.',

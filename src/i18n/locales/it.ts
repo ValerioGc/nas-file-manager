@@ -13,7 +13,7 @@ export const it = {
   trashDisableMessage:
     'Le nuove eliminazioni saranno definitive. I file già presenti resteranno recuperabili fino alla scadenza di {days} giorni dalla loro eliminazione.',
   trashDisable: 'Disattiva',
-  trashEmptyAlso: 'Svuota anche il cestino: elimina definitivamente i file presenti',
+  trashEmptyAlso: 'Svuota anche il cestino ed elimina definitivamente i file presenti',
   hideFile: 'Nascondi',
   showFile: 'Mostra',
   fileHidden: 'Elemento nascosto ({name})',
@@ -24,7 +24,7 @@ export const it = {
   confirmTrashManyMessage: 'Spostare nel cestino i {count} elementi selezionati?',
   trashNote: 'Gli elementi restano qui {days} giorni, poi vengono eliminati.',
   trashOffNote:
-    'Cestino disattivato: le nuove eliminazioni sono definitive. I file presenti possono essere ripristinati o eliminati e scadono dopo {days} giorni dalla loro eliminazione.',
+    'Cestino disattivato. Le nuove eliminazioni sono definitive. I file presenti possono essere ripristinati o eliminati e scadono dopo {days} giorni dalla loro eliminazione.',
   trashReading: 'Lettura del cestino in corso',
   trashNothing: 'Il cestino è vuoto',
   trashUnavailable: 'Il cestino non è disponibile.',
